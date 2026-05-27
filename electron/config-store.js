@@ -21,6 +21,7 @@ function getDefaultConfig() {
     baseUrl: PROVIDER_PRESETS[0].defaultBaseUrl,
     model: DEFAULT_MODEL,
     apiKey: "",
+    supportsVision: false,
     beeSwitchThreshold: DEFAULT_BEE_SWITCH_THRESHOLD,
     floatingWidgetEnabled: true
   };
@@ -54,6 +55,7 @@ async function writeConfig(nextConfig) {
     baseUrl: (nextConfig.baseUrl || "").trim(),
     model: (nextConfig.model || "").trim(),
     apiKey: (nextConfig.apiKey || "").trim(),
+    supportsVision: nextConfig.supportsVision === true,
     beeSwitchThreshold: Math.max(1, Number(nextConfig.beeSwitchThreshold) || DEFAULT_BEE_SWITCH_THRESHOLD),
     floatingWidgetEnabled: nextConfig.floatingWidgetEnabled !== false
   };

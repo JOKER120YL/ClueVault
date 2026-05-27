@@ -5,6 +5,13 @@ const { ensureConfigFile, readConfig, writeConfig } = require("./config-store");
 const { PROVIDER_PRESETS, DEFAULT_STORAGE_PATH, DISCIPLINE_OPTIONS, IMAGE_EXTENSIONS, MODEL_EXTENSIONS } = require("./constants");
 const { generateDraft } = require("./draft-service");
 const { toAttachment, uniqueByPath } = require("./file-utils");
+const { organizeKnowledge } = require("./knowledge-service");
+const {
+  exportKnowledgeBase,
+  importKnowledgeBase,
+  mergeKnowledgeEntries,
+  readKnowledgeBase
+} = require("./knowledge-base-store");
 const { ensureStatsFile, getTodayCount, recordSubmission } = require("./submission-stats");
 const {
   createFloatingWindow,
@@ -135,6 +142,16 @@ ipcMain.handle("draft:generate", async (_event, payload) => {
 
   return generateDraft({ config, payload });
 });
+
+ipcMain.handle("knowledge:organize", async (_event, payload) => {
+  const config = await readConfig();
+  return organizeKnowledge({ config, payload });
+});
+
+ipcMain.handle("knowledge:get-library", async () => readKnowledgeBase());
+ipcMain.handle("knowledge:save-items", async (_event, payload) => mergeKnowledgeEntries(payload.items || [], payload.sourceLabel || "manual"));
+ipcMain.handle("knowledge:export", async (_event, mode) => exportKnowledgeBase(mode));
+ipcMain.handle("knowledge:import", async () => importKnowledgeBase());
 
 ipcMain.handle("bug:submit", async (_event, payload) => {
   const config = await readConfig();

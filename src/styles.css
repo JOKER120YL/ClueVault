@@ -144,6 +144,16 @@ textarea {
   gap: 24px;
 }
 
+.single-layout {
+  display: grid;
+}
+
+.knowledge-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
+  gap: 24px;
+}
+
 .quick-card {
   border-radius: 28px;
   padding: 24px;
@@ -245,6 +255,48 @@ textarea {
 .submit-panel {
   display: grid;
   gap: 14px;
+  margin-top: 8px;
+}
+
+.knowledge-result,
+.knowledge-library-list {
+  display: grid;
+  gap: 12px;
+}
+
+.knowledge-summary,
+.helper-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(250, 247, 241, 0.88);
+  color: #5b636b;
+}
+
+.knowledge-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 247, 237, 0.88);
+  border: 1px solid rgba(139, 78, 38, 0.08);
+}
+
+.knowledge-item p,
+.knowledge-item small {
+  margin: 0;
+  color: #5b636b;
+}
+
+.knowledge-item.compact small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-library {
+  display: grid;
+  gap: 12px;
   margin-top: 8px;
 }
 
@@ -362,6 +414,10 @@ textarea {
   }
 
   .quick-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledge-layout {
     grid-template-columns: 1fr;
   }
 }

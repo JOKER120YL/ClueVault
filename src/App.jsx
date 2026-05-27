@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 
-const emptyDraft = {
-  titleDraft: "",
-  summaryDraft: "",
-  analysisDraft: ""
-};
-
 function uniqueByPath(items) {
   const map = new Map();
   for (const item of items) {
@@ -14,16 +8,37 @@ function uniqueByPath(items) {
   return Array.from(map.values());
 }
 
+const initialBugForm = {
+  discipline: "architecture",
+  projectName: "",
+  submitter: "",
+  description: "",
+  attachments: []
+};
+
+const initialKnowledgeForm = {
+  rawIssue: "",
+  solutionNotes: "",
+  extraContext: "",
+  attachments: []
+};
+
 function App() {
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState("bug");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [dropActive, setDropActive] = useState(false);
+  const [bugDropActive, setBugDropActive] = useState(false);
+  const [knowledgeDropActive, setKnowledgeDropActive] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [testingStorage, setTestingStorage] = useState(false);
-  const [generatingDraft, setGeneratingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [organizingKnowledge, setOrganizingKnowledge] = useState(false);
   const [configStatus, setConfigStatus] = useState("");
-  const [submitStatus, setSubmitStatus] = useState(null);
+  const [bugStatus, setBugStatus] = useState(null);
+  const [knowledgeStatus, setKnowledgeStatus] = useState(null);
+  const [knowledgeResult, setKnowledgeResult] = useState(null);
+  const [knowledgeLibrary, setKnowledgeLibrary] = useState({ entries: [], meta: {} });
+  const [knowledgeSyncing, setKnowledgeSyncing] = useState(false);
   const [widgetState, setWidgetState] = useState({
     todayCount: 0,
     threshold: 1,
@@ -43,18 +58,12 @@ function App() {
     baseUrl: "",
     model: "",
     apiKey: "",
+    supportsVision: false,
     beeSwitchThreshold: 1,
     floatingWidgetEnabled: true
   });
-  const [form, setForm] = useState({
-    discipline: "architecture",
-    projectName: "",
-    submitter: "",
-    description: "",
-    extraNotes: "",
-    attachments: [],
-    ...emptyDraft
-  });
+  const [bugForm, setBugForm] = useState(initialBugForm);
+  const [knowledgeForm, setKnowledgeForm] = useState(initialKnowledgeForm);
 
   useEffect(() => {
     let mounted = true;
@@ -68,7 +77,8 @@ function App() {
       setBootstrap(result);
       setConfig(result.config);
       setWidgetState(result.widgetState);
-      setForm((current) => ({
+      setKnowledgeLibrary(await window.bugHelperApi.getKnowledgeLibrary());
+      setBugForm((current) => ({
         ...current,
         discipline: result.disciplineOptions?.[0]?.id || current.discipline,
         submitter: result.config.displayName || "",
@@ -84,14 +94,15 @@ function App() {
     });
 
     const unsubscribeDrop = window.bugHelperApi.onWidgetFilesDropped((payload) => {
-      setForm((current) => ({
+      setBugForm((current) => ({
         ...current,
         attachments: uniqueByPath([...current.attachments, ...(payload.attachments || [])])
       }));
-      setSubmitStatus({
+      setBugStatus({
         kind: "success",
         text: `悬浮窗已收到 ${(payload.attachments || []).length} 个文件。`
       });
+      setActiveView("bug");
     });
 
     const unsubscribeWidget = window.bugHelperApi.onWidgetStateUpdated((state) => {
@@ -112,12 +123,16 @@ function App() {
   function updateConfigField(key, value) {
     setConfig((current) => ({ ...current, [key]: value }));
     if (key === "displayName") {
-      setForm((current) => ({ ...current, submitter: value }));
+      setBugForm((current) => ({ ...current, submitter: value }));
     }
   }
 
-  function updateFormField(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+  function updateBugField(key, value) {
+    setBugForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateKnowledgeField(key, value) {
+    setKnowledgeForm((current) => ({ ...current, [key]: value }));
   }
 
   function onProviderChange(providerId) {
@@ -135,7 +150,7 @@ function App() {
     try {
       const saved = await window.bugHelperApi.saveConfig(config);
       setConfig(saved);
-      setForm((current) => ({
+      setBugForm((current) => ({
         ...current,
         submitter: current.submitter || saved.displayName
       }));
@@ -164,28 +179,40 @@ function App() {
     }
   }
 
-  async function handlePickAttachments(role) {
+  async function handlePickAttachments(role, target) {
     try {
       const files = await window.bugHelperApi.pickAttachments(role);
       if (!files.length) {
         return;
       }
 
-      setForm((current) => ({
-        ...current,
-        attachments: uniqueByPath([...current.attachments, ...files])
-      }));
+      if (target === "knowledge") {
+        setKnowledgeForm((current) => ({
+          ...current,
+          attachments: uniqueByPath([...current.attachments, ...files])
+        }));
+      } else {
+        setBugForm((current) => ({
+          ...current,
+          attachments: uniqueByPath([...current.attachments, ...files])
+        }));
+      }
     } catch (error) {
-      setSubmitStatus({
+      const setter = target === "knowledge" ? setKnowledgeStatus : setBugStatus;
+      setter({
         kind: "error",
         text: error.message || "选择附件失败。"
       });
     }
   }
 
-  async function handleDropZone(event) {
+  async function handleDropZone(event, target) {
     event.preventDefault();
-    setDropActive(false);
+    if (target === "knowledge") {
+      setKnowledgeDropActive(false);
+    } else {
+      setBugDropActive(false);
+    }
     const paths = Array.from(event.dataTransfer.files || []).map((file) => file.path).filter(Boolean);
     if (!paths.length) {
       return;
@@ -193,90 +220,69 @@ function App() {
 
     try {
       const files = await window.bugHelperApi.attachmentsFromPaths(paths);
-      setForm((current) => ({
-        ...current,
-        attachments: uniqueByPath([...current.attachments, ...files])
-      }));
-      setSubmitStatus({
-        kind: "success",
-        text: `已加入 ${files.length} 个文件。`
-      });
+      if (target === "knowledge") {
+        setKnowledgeForm((current) => ({
+          ...current,
+          attachments: uniqueByPath([...current.attachments, ...files])
+        }));
+        setKnowledgeStatus({ kind: "success", text: `已加入 ${files.length} 个知识整理附件。` });
+      } else {
+        setBugForm((current) => ({
+          ...current,
+          attachments: uniqueByPath([...current.attachments, ...files])
+        }));
+        setBugStatus({ kind: "success", text: `已加入 ${files.length} 个提交附件。` });
+      }
     } catch (error) {
-      setSubmitStatus({
+      const setter = target === "knowledge" ? setKnowledgeStatus : setBugStatus;
+      setter({
         kind: "error",
         text: error.message || "拖入文件失败。"
       });
     }
   }
 
-  function removeAttachment(id) {
-    setForm((current) => ({
-      ...current,
-      attachments: current.attachments.filter((item) => item.id !== id)
-    }));
-  }
-
-  async function handleGenerateDraft() {
-    setGeneratingDraft(true);
-    setSubmitStatus(null);
-    try {
-      const result = await window.bugHelperApi.generateDraft({
-        ...form,
-        submitter: form.submitter || config.displayName,
-        createdAt: new Date().toISOString()
-      });
-
-      setForm((current) => ({
+  function removeAttachment(id, target) {
+    if (target === "knowledge") {
+      setKnowledgeForm((current) => ({
         ...current,
-        titleDraft: result.titleDraft,
-        summaryDraft: result.summaryDraft,
-        analysisDraft: result.analysisDraft
+        attachments: current.attachments.filter((item) => item.id !== id)
       }));
-
-      setSubmitStatus({
-        kind: result.mode === "ai" ? "success" : "warning",
-        text: result.mode === "ai" ? "AI 草稿已生成。" : "AI 不可用，已生成本地草稿。"
-      });
-    } catch (error) {
-      setSubmitStatus({
-        kind: "error",
-        text: error.message || "生成草稿失败。"
-      });
-    } finally {
-      setGeneratingDraft(false);
+    } else {
+      setBugForm((current) => ({
+        ...current,
+        attachments: current.attachments.filter((item) => item.id !== id)
+      }));
     }
   }
 
-  async function handleSubmit() {
+  async function handleSubmitBug() {
     setSubmitting(true);
-    setSubmitStatus(null);
+    setBugStatus(null);
     try {
       const result = await window.bugHelperApi.submitBug({
-        ...form,
-        submitter: form.submitter || config.displayName,
+        ...bugForm,
+        titleDraft: bugForm.description,
+        summaryDraft: "",
+        analysisDraft: "",
+        extraNotes: "",
+        submitter: bugForm.submitter || config.displayName,
         createdAt: new Date().toISOString()
       });
 
       setWidgetState(result.widgetState);
-      setSubmitStatus({
+      setBugStatus({
         kind: "success",
         text: `提交成功，已写入 ${result.targetDir}`
       });
 
-      setForm((current) => ({
-        ...current,
+      setBugForm((current) => ({
+        ...initialBugForm,
         discipline: current.discipline,
-        projectName: "",
-        description: "",
-        extraNotes: "",
-        attachments: [],
-        titleDraft: "",
-        summaryDraft: "",
-        analysisDraft: "",
         submitter: result.submitter
       }));
     } catch (error) {
-      setSubmitStatus({
+      setBugStatus({
         kind: "error",
         text: error.message || "提交失败。"
       });
@@ -285,8 +291,105 @@ function App() {
     }
   }
 
+  async function handleOrganizeKnowledge() {
+    setOrganizingKnowledge(true);
+    setKnowledgeStatus(null);
+    try {
+      const result = await window.bugHelperApi.organizeKnowledge(knowledgeForm);
+      setKnowledgeResult(result);
+      setKnowledgeStatus({
+        kind: result.mode === "ai" ? "success" : "warning",
+        text: result.mode === "ai" ? "知识整理已生成。" : `已生成基础整理结果。${result.warning ? ` ${result.warning}` : ""}`
+      });
+    } catch (error) {
+      setKnowledgeStatus({
+        kind: "error",
+        text: error.message || "知识整理失败。"
+      });
+    } finally {
+      setOrganizingKnowledge(false);
+    }
+  }
+
+  async function refreshKnowledgeLibrary() {
+    setKnowledgeLibrary(await window.bugHelperApi.getKnowledgeLibrary());
+  }
+
+  async function handleSaveKnowledgeResult() {
+    if (!knowledgeResult?.items?.length) {
+      setKnowledgeStatus({ kind: "warning", text: "当前没有可保存的知识条目。" });
+      return;
+    }
+
+    setKnowledgeSyncing(true);
+    try {
+      const result = await window.bugHelperApi.saveKnowledgeItems({
+        items: knowledgeResult.items,
+        sourceLabel: "ai-organize"
+      });
+      await refreshKnowledgeLibrary();
+      setKnowledgeStatus({
+        kind: "success",
+        text: `已保存到知识库，新增 ${result.added} 条，更新 ${result.updated} 条。`
+      });
+    } catch (error) {
+      setKnowledgeStatus({
+        kind: "error",
+        text: error.message || "保存知识库失败。"
+      });
+    } finally {
+      setKnowledgeSyncing(false);
+    }
+  }
+
+  async function handleExportKnowledge(mode) {
+    setKnowledgeSyncing(true);
+    try {
+      const result = await window.bugHelperApi.exportKnowledge(mode);
+      if (result.canceled) {
+        setKnowledgeStatus({ kind: "warning", text: "已取消导出。" });
+      } else {
+        await refreshKnowledgeLibrary();
+        setKnowledgeStatus({
+          kind: "success",
+          text: `${mode === "incremental" ? "增量" : "完整"}导出成功，共 ${result.count} 条。`
+        });
+      }
+    } catch (error) {
+      setKnowledgeStatus({
+        kind: "error",
+        text: error.message || "导出失败。"
+      });
+    } finally {
+      setKnowledgeSyncing(false);
+    }
+  }
+
+  async function handleImportKnowledge() {
+    setKnowledgeSyncing(true);
+    try {
+      const result = await window.bugHelperApi.importKnowledge();
+      if (result.canceled) {
+        setKnowledgeStatus({ kind: "warning", text: "已取消导入。" });
+      } else {
+        await refreshKnowledgeLibrary();
+        setKnowledgeStatus({
+          kind: "success",
+          text: `导入完成，新增 ${result.added} 条，更新 ${result.updated} 条，自动去重后总计 ${result.total} 条。`
+        });
+      }
+    } catch (error) {
+      setKnowledgeStatus({
+        kind: "error",
+        text: error.message || "导入失败。"
+      });
+    } finally {
+      setKnowledgeSyncing(false);
+    }
+  }
+
   if (loading) {
-    return <div className="loading-screen">正在加载 EasyBIM Bug 收集助手...</div>;
+    return <div className="loading-screen">正在加载 ClueVault...</div>;
   }
 
   return (
@@ -294,7 +397,7 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">ClueVault</p>
-          <h1>快速反馈</h1>
+          <h1>问题提交与知识整理</h1>
         </div>
         <div className="topbar-actions">
           <div className={`avatar-pill ${widgetState.currentAvatar}`}>
@@ -303,175 +406,291 @@ function App() {
               {widgetState.todayCount}/{widgetState.threshold}
             </strong>
           </div>
+          <button className={activeView === "bug" ? "" : "ghost"} onClick={() => setActiveView("bug")}>
+            快速提 Bug
+          </button>
+          <button className={activeView === "knowledge" ? "" : "ghost"} onClick={() => setActiveView("knowledge")}>
+            知识整理
+          </button>
           <button className="ghost" onClick={() => setSettingsOpen(true)}>
             设置
           </button>
         </div>
       </header>
 
-      <main className="quick-layout">
-        <section className="quick-card quick-card-main">
-          <div className="quick-head">
-            <div>
-              <h2>拖入文件，写一句问题描述，直接提交</h2>
-              <p>常用流程放在一页内，设置项收进单独面板。</p>
+      {activeView === "bug" ? (
+        <main className="single-layout">
+          <section className="quick-card quick-card-main">
+            <div className="quick-head">
+              <div>
+                <h2>提 bug 只保留最少输入</h2>
+                <p>选专业、拖文件、写一句“有什么问题”，然后直接提交。</p>
+              </div>
+              {needsOnboarding ? <span className="badge warning">先完成设置</span> : null}
             </div>
-            {needsOnboarding ? <span className="badge warning">先完成设置</span> : null}
-          </div>
 
-          <div
-            className={`dropzone ${dropActive ? "active" : ""}`}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setDropActive(true);
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDropActive(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              setDropActive(false);
-            }}
-            onDrop={handleDropZone}
-          >
-            <strong>把模型、图片、`.eb` 文件直接拖到这里</strong>
-            <p>也可以用下面按钮选择文件。悬浮窗拖入的文件也会自动进来。</p>
+            <div
+              className={`dropzone ${bugDropActive ? "active" : ""}`}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setBugDropActive(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setBugDropActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setBugDropActive(false);
+              }}
+              onDrop={(event) => handleDropZone(event, "bug")}
+            >
+              <strong>把模型、图片、`.eb` 文件直接拖到这里</strong>
+              <p>悬浮窗拖入的文件也会自动进入当前提 bug 列表。</p>
+              <div className="button-row">
+                <button className="ghost" onClick={() => handlePickAttachments("model", "bug")}>
+                  添加模型 / `.eb`
+                </button>
+                <button className="ghost" onClick={() => handlePickAttachments("image", "bug")}>
+                  添加图片
+                </button>
+                <button className="ghost" onClick={() => handlePickAttachments("other", "bug")}>
+                  其他附件
+                </button>
+              </div>
+            </div>
+
+            <div className="compact-row">
+              <label>
+                所属专业 <span className="required-mark">*</span>
+                <select value={bugForm.discipline} onChange={(event) => updateBugField("discipline", event.target.value)}>
+                  {disciplineOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                提交人
+                <input
+                  value={bugForm.submitter}
+                  onChange={(event) => updateBugField("submitter", event.target.value)}
+                  placeholder="默认使用本地配置"
+                />
+              </label>
+            </div>
+
+            <label>
+              问题描述 <span className="required-mark">*</span>
+              <textarea
+                value={bugForm.description}
+                onChange={(event) => updateBugField("description", event.target.value)}
+                placeholder="例如：导出后楼梯丢失、结构梁错位、平台问题所有专业都出现。"
+                rows={5}
+              />
+            </label>
+
+            <div className="compact-row">
+              <label>
+                目标专业目录
+                <input
+                  readOnly
+                  value={`${config.storagePath || bootstrap.defaults.storagePath || ""}\\${
+                    disciplineOptions.find((item) => item.id === bugForm.discipline)?.folderName || ""
+                  }`}
+                />
+              </label>
+              <label>
+                项目名
+                <input
+                  value={bugForm.projectName}
+                  onChange={(event) => updateBugField("projectName", event.target.value)}
+                  placeholder="选填"
+                />
+              </label>
+            </div>
+
+            <div className="attachment-list">
+              {bugForm.attachments.length ? (
+                bugForm.attachments.map((item) => (
+                  <div className="attachment-chip" key={item.id}>
+                    <span>{item.role}</span>
+                    <strong>{item.name}</strong>
+                    <button className="text-button" onClick={() => removeAttachment(item.id, "bug")}>
+                      移除
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-inline">还没有附件，直接拖文件进来会更快。</div>
+              )}
+            </div>
+
+            <div className="submit-panel">
+              <button className="primary-large" onClick={handleSubmitBug} disabled={submitting}>
+                {submitting ? "提交中..." : "直接提交"}
+              </button>
+              {bugStatus ? <div className={`status-card ${bugStatus.kind}`}>{bugStatus.text}</div> : null}
+            </div>
+          </section>
+        </main>
+      ) : (
+        <main className="knowledge-layout">
+          <section className="quick-card quick-card-main">
+            <div className="quick-head">
+              <div>
+                <h2>整理每天遇到的问题和解法</h2>
+                <p>这里才使用 AI。你可以放聊天截图、原始问题和已有解决方案，让模型归纳成一条条答复方案。</p>
+              </div>
+              <button onClick={handleOrganizeKnowledge} disabled={organizingKnowledge}>
+                {organizingKnowledge ? "整理中..." : "开始整理"}
+              </button>
+            </div>
+
+            <div
+              className={`dropzone ${knowledgeDropActive ? "active" : ""}`}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setKnowledgeDropActive(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setKnowledgeDropActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setKnowledgeDropActive(false);
+              }}
+              onDrop={(event) => handleDropZone(event, "knowledge")}
+            >
+              <strong>把聊天截图、相关图片拖到这里</strong>
+              <p>
+                当前模型{config.supportsVision ? "支持直接看图，会优先直接传图片。" : "不支持直接看图，会先 OCR 提取图片文字后再整理。"}
+              </p>
+              <div className="button-row">
+                <button className="ghost" onClick={() => handlePickAttachments("image", "knowledge")}>
+                  添加聊天截图
+                </button>
+                <button className="ghost" onClick={() => handlePickAttachments("other", "knowledge")}>
+                  其他材料
+                </button>
+              </div>
+            </div>
+
+            <label>
+              原始问题 / 聊天摘要
+              <textarea
+                value={knowledgeForm.rawIssue}
+                onChange={(event) => updateKnowledgeField("rawIssue", event.target.value)}
+                placeholder="把你当天遇到的问题、客户怎么问的，简单贴进来。"
+                rows={5}
+              />
+            </label>
+
+            <label>
+              已有解决方案
+              <textarea
+                value={knowledgeForm.solutionNotes}
+                onChange={(event) => updateKnowledgeField("solutionNotes", event.target.value)}
+                placeholder="把你已经确认过的解法、话术、操作步骤放这里。"
+                rows={5}
+              />
+            </label>
+
+            <label>
+              补充备注
+              <textarea
+                value={knowledgeForm.extraContext}
+                onChange={(event) => updateKnowledgeField("extraContext", event.target.value)}
+                placeholder="版本限制、适用条件、额外注意事项等。"
+                rows={3}
+              />
+            </label>
+
+            <div className="attachment-list">
+              {knowledgeForm.attachments.length ? (
+                knowledgeForm.attachments.map((item) => (
+                  <div className="attachment-chip" key={item.id}>
+                    <span>{item.role}</span>
+                    <strong>{item.name}</strong>
+                    <button className="text-button" onClick={() => removeAttachment(item.id, "knowledge")}>
+                      移除
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-inline">还没有知识整理附件，建议放聊天截图。</div>
+              )}
+            </div>
+
             <div className="button-row">
-              <button className="ghost" onClick={() => handlePickAttachments("model")}>
-                添加模型 / `.eb`
+              <button className="ghost" onClick={handleSaveKnowledgeResult} disabled={knowledgeSyncing}>
+                保存到知识库
               </button>
-              <button className="ghost" onClick={() => handlePickAttachments("image")}>
-                添加图片
+              <button className="ghost" onClick={() => handleExportKnowledge("full")} disabled={knowledgeSyncing}>
+                导出全部
               </button>
-              <button className="ghost" onClick={() => handlePickAttachments("other")}>
-                其他附件
+              <button className="ghost" onClick={() => handleExportKnowledge("incremental")} disabled={knowledgeSyncing}>
+                导出新增
+              </button>
+              <button className="ghost" onClick={handleImportKnowledge} disabled={knowledgeSyncing}>
+                导入并去重
               </button>
             </div>
-          </div>
+          </section>
 
-          <div className="compact-row">
-            <label>
-              所属专业 <span className="required-mark">*</span>
-              <select value={form.discipline} onChange={(event) => updateFormField("discipline", event.target.value)}>
-                {disciplineOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
+          <section className="quick-card quick-card-side">
+            <div className="quick-head">
+              <div>
+                <h2>整理结果</h2>
+                <p>{knowledgeResult?.usedOcr ? "本次已先 OCR 再整理。" : "本次未使用 OCR。"} </p>
+              </div>
+            </div>
+
+            {knowledgeStatus ? <div className={`status-card ${knowledgeStatus.kind}`}>{knowledgeStatus.text}</div> : null}
+
+            {knowledgeResult ? (
+              <div className="knowledge-result">
+                <div className="knowledge-summary">{knowledgeResult.summary || "暂无摘要"}</div>
+                {knowledgeResult.items.map((item, index) => (
+                  <div className="knowledge-item" key={`${item.question}-${index}`}>
+                    <strong>{item.question || "未命名问题"}</strong>
+                    <p>{item.answer || "暂无解答"}</p>
+                    <small>{item.notes || "无补充备注"}</small>
+                  </div>
                 ))}
-              </select>
-            </label>
-            <label>
-              项目名
-              <input
-                value={form.projectName}
-                onChange={(event) => updateFormField("projectName", event.target.value)}
-                placeholder="选填，例如 Revit 导出"
-              />
-            </label>
-            <label>
-              提交人
-              <input
-                value={form.submitter}
-                onChange={(event) => updateFormField("submitter", event.target.value)}
-                placeholder="默认使用本地配置"
-              />
-            </label>
-            <label>
-              目标专业目录
-              <input
-                readOnly
-                value={`${config.storagePath || bootstrap.defaults.storagePath || ""}\\${
-                  disciplineOptions.find((item) => item.id === form.discipline)?.folderName || ""
-                }`}
-                placeholder="按所选专业自动落目录"
-              />
-            </label>
-          </div>
-
-          <label>
-            问题描述 <span className="required-mark">*</span>
-            <textarea
-              value={form.description}
-              onChange={(event) => updateFormField("description", event.target.value)}
-              placeholder="这里尽量只写现象和影响，不用一次写很全。"
-              rows={5}
-            />
-          </label>
-
-          <label>
-            补充说明
-            <textarea
-              value={form.extraNotes}
-              onChange={(event) => updateFormField("extraNotes", event.target.value)}
-              placeholder="版本、客户背景、研发提醒等选填信息。"
-              rows={3}
-            />
-          </label>
-
-          <div className="attachment-list">
-            {form.attachments.length ? (
-              form.attachments.map((item) => (
-                <div className="attachment-chip" key={item.id}>
-                  <span>{item.role}</span>
-                  <strong>{item.name}</strong>
-                  <button className="text-button" onClick={() => removeAttachment(item.id)}>
-                    移除
-                  </button>
-                </div>
-              ))
+              </div>
             ) : (
-              <div className="empty-inline">还没有附件，直接拖文件进来会更快。</div>
+              <div className="empty-inline">整理后会在这里生成一条条问题对应的解答方案。</div>
             )}
-          </div>
-        </section>
 
-        <section className="quick-card quick-card-side">
-          <div className="quick-head">
-            <div>
-              <h2>AI 草稿</h2>
-              <p>先出草稿，你再确认。</p>
+            <div className="knowledge-library">
+              <div className="quick-head">
+                <div>
+                  <h2>知识库</h2>
+                  <p>支持去重、增量导入和增量备份。</p>
+                </div>
+              </div>
+              <div className="helper-card">
+                当前共 {knowledgeLibrary.entries?.length || 0} 条
+                {knowledgeLibrary.meta?.lastExportAt ? `，上次增量导出：${knowledgeLibrary.meta.lastExportAt}` : "，还没有做过增量导出"}
+              </div>
+              <div className="knowledge-library-list">
+                {(knowledgeLibrary.entries || []).slice(0, 8).map((item) => (
+                  <div className="knowledge-item compact" key={item.id}>
+                    <strong>{item.question || "未命名问题"}</strong>
+                    <small>{item.answer || "暂无答案"}</small>
+                  </div>
+                ))}
+                {!knowledgeLibrary.entries?.length ? (
+                  <div className="empty-inline">知识库还是空的，先整理一批结果再保存进来。</div>
+                ) : null}
+              </div>
             </div>
-            <button onClick={handleGenerateDraft} disabled={generatingDraft}>
-              {generatingDraft ? "生成中..." : "生成草稿"}
-            </button>
-          </div>
-
-          <label>
-            标题
-            <input
-              value={form.titleDraft}
-              onChange={(event) => updateFormField("titleDraft", event.target.value)}
-              placeholder="AI 或手动填写标题"
-            />
-          </label>
-          <label>
-            摘要
-            <textarea
-              value={form.summaryDraft}
-              onChange={(event) => updateFormField("summaryDraft", event.target.value)}
-              rows={4}
-              placeholder="给研发测试组看的简短摘要"
-            />
-          </label>
-          <label>
-            分析结论
-            <textarea
-              value={form.analysisDraft}
-              onChange={(event) => updateFormField("analysisDraft", event.target.value)}
-              rows={6}
-              placeholder="AI 分析重点，可手动改"
-            />
-          </label>
-
-          <div className="submit-panel">
-            <button className="primary-large" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "提交中..." : "确认提交"}
-            </button>
-            {submitStatus ? <div className={`status-card ${submitStatus.kind}`}>{submitStatus.text}</div> : null}
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      )}
 
       {settingsOpen ? (
         <div className="settings-backdrop" onClick={() => !needsOnboarding && setSettingsOpen(false)}>
@@ -479,7 +698,7 @@ function App() {
             <div className="panel-header">
               <div>
                 <p className="eyebrow">设置</p>
-                <h2>个人、共享目录与 AI</h2>
+                <h2>个人、共享目录与模型配置</h2>
               </div>
               {!needsOnboarding ? (
                 <button className="ghost" onClick={() => setSettingsOpen(false)}>
@@ -547,13 +766,12 @@ function App() {
             </label>
 
             <div className="compact-row">
-              <label>
-                蜂哥切换阈值
+              <label className="toggle-row">
+                <span>模型支持图片识别</span>
                 <input
-                  type="number"
-                  min="1"
-                  value={config.beeSwitchThreshold}
-                  onChange={(event) => updateConfigField("beeSwitchThreshold", event.target.value)}
+                  type="checkbox"
+                  checked={config.supportsVision === true}
+                  onChange={(event) => updateConfigField("supportsVision", event.target.checked)}
                 />
               </label>
               <label className="toggle-row">
@@ -564,6 +782,23 @@ function App() {
                   onChange={(event) => updateConfigField("floatingWidgetEnabled", event.target.checked)}
                 />
               </label>
+            </div>
+
+            <div className="compact-row">
+              <label>
+                蜂哥切换阈值
+                <input
+                  type="number"
+                  min="1"
+                  value={config.beeSwitchThreshold}
+                  onChange={(event) => updateConfigField("beeSwitchThreshold", event.target.value)}
+                />
+              </label>
+              <div className="helper-card">
+                {config.supportsVision
+                  ? "当前会优先直接把聊天截图传给模型。"
+                  : "当前会先 OCR 提取截图文字，再交给模型整理。"}
+              </div>
             </div>
 
             <div className="button-row">
