@@ -1,6 +1,6 @@
 const path = require("node:path");
 
-const DEFAULT_STORAGE_PATH = "\\\\server\\share\\EasyBIM\\bug-collect";
+const DEFAULT_STORAGE_PATH = "\\\\server\\share\\bug-collect";
 const CONFIG_FILE_NAME = "config.json";
 const STATS_FILE_NAME = "submission-stats.json";
 const DEFAULT_MODEL = "deepseek-chat";

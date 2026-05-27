@@ -1,8 +1,8 @@
-# EasyBIM Bug 收集助手 PRD
+# ClueVault PRD
 
 ## 1. 文档信息
 
-- 产品名称：EasyBIM Bug 收集助手
+- 产品名称：ClueVault
 - 形态：Windows 桌面客户端
 - 当前版本目标：v1
 - 主要用户：运营、客服、测试协同人员

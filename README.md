@@ -1,6 +1,6 @@
-# EasyBIM Bug 收集助手
+# ClueVault
 
-一个基于 `Electron + React` 的 Windows 桌面工具，用于帮助运营或客服把模型、截图、文字说明整理成标准化 bug 文件夹，并写入共享目录，供研发测试组排查。
+一个基于 `Electron + React` 的 Windows 桌面工具，用于把模型、截图、文字说明等问题材料整理成标准化反馈文件夹，并写入共享目录，供研发或测试团队排查。
 
 产品需求文档见 [PRD.md](F:/Code%20space/EasyBIM%20helper/bug反馈助手/PRD.md)。
 
@@ -38,7 +38,7 @@ npm run build
 
 ## 配置说明
 
-- 默认共享目录占位值是 `\\\\server\\share\\EasyBIM\\bug-collect`
+- 默认共享目录占位值是 `\\\\server\\share\\bug-collect`
 - 建议改成你们真实可访问的 `UNC` 网络路径
 - `DeepSeek` 已内置默认 `base URL`
 - 每位运营的 API Key 只保存在自己的本地配置中

@@ -1,7 +1,7 @@
 {
-  "name": "easybim-bug-helper",
+  "name": "cluevault",
   "version": "1.0.0",
-  "description": "Windows bug collection assistant for EasyBIM operations team.",
+  "description": "Windows desktop app for collecting bug reports with files, notes, and AI-assisted summaries.",
   "main": "electron/main.js",
   "author": "OpenAI Codex",
   "license": "MIT",
@@ -29,7 +29,7 @@
   },
   "build": {
     "appId": "com.easybim.bughelper",
-    "productName": "EasyBIM Bug 收集助手",
+    "productName": "ClueVault",
     "directories": {
       "output": "release"
     },
