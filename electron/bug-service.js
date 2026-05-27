@@ -27,6 +27,7 @@ function renderMarkdownReport(payload) {
     "",
     `- 提交人: ${payload.submitter || "未填写"}`,
     `- 创建时间: ${new Date(payload.createdAt).toLocaleString("zh-CN", { hour12: false })}`,
+    payload.disciplineLabel ? `- 所属专业: ${payload.disciplineLabel}` : null,
     payload.projectName ? `- 项目名: ${payload.projectName}` : null,
     "",
     "## 问题摘要",
@@ -79,6 +80,7 @@ async function submitBugToStorage({ config, payload, submitter }) {
   await copyAttachmentList(targetDir, payload.attachments);
   const report = renderMarkdownReport({
     ...payload,
+    disciplineLabel: discipline.label,
     submitter
   });
   await fs.writeFile(path.join(targetDir, "说明.md"), report, "utf8");

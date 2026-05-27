@@ -293,7 +293,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">EasyBIM</p>
+          <p className="eyebrow">ClueVault</p>
           <h1>快速反馈</h1>
         </div>
         <div className="topbar-actions">

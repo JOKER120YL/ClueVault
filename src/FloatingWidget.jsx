@@ -85,27 +85,25 @@ function FloatingWidget() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!dragging) {
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setDragging(false);
+      }}
+      onDrop={handleDrop}
       title={widgetState.hint}
     >
       <div className="floating-aura" />
-      <div
-        className={`floating-core ${widgetState.currentAvatar}`}
-        onDragEnter={(event) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragOver={(event) => {
-          event.preventDefault();
-          if (!dragging) {
-            setDragging(true);
-          }
-        }}
-        onDragLeave={(event) => {
-          event.preventDefault();
-          setDragging(false);
-        }}
-        onDrop={handleDrop}
-      >
+      <div className={`floating-core ${widgetState.currentAvatar}`}>
         <img
           src={widgetState.currentAvatar === "bee" ? "mascots/ebee-angry-final.png" : "mascots/frogdi-confused-final.png"}
           alt={widgetState.currentAvatar === "bee" ? "蜂哥悬浮窗" : "蛙弟悬浮窗"}
