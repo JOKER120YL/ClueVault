@@ -1,8 +1,8 @@
 #define MyAppName "ClueVault"
-#define MyAppVersion "0.2.1"
+#define MyAppVersion "0.2.2"
 #define MyAppPublisher "EasyBIM"
 #define MyAppExeName "ClueVault.Desktop.exe"
-#define PublishDir "..\..\dist\ClueVault-v0.2.1-win-x64"
+#define PublishDir "..\..\dist\ClueVault-v0.2.2-win-x64"
 
 [Setup]
 AppId={{8C89D363-616A-43F5-9D55-8A04F92D09B8}
@@ -34,7 +34,7 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{group}\ClueVault"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{commondesktop}\ClueVault"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userdesktop}\ClueVault"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 ClueVault"; Flags: nowait postinstall skipifsilent
