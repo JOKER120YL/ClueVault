@@ -1,0 +1,42 @@
+<Window x:Class="ClueVault.Desktop.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置"
+        Width="620"
+        Height="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Icon="Assets/app-icon.ico"
+        Background="#FFFBF5">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,18">
+            <TextBlock Text="设置" FontSize="28" FontWeight="Bold" Foreground="#1F2328" />
+            <TextBlock Text="配置归档身份、共享盘目录和悬浮窗状态。" Margin="0,6,0,0" Foreground="#5B636B" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <TextBlock Text="姓名 / 昵称" Margin="0,0,0,6" />
+            <TextBox x:Name="DisplayNameTextBox" Height="42" Padding="12,10" Margin="0,0,0,14" />
+
+            <TextBlock Text="共享目录" Margin="0,0,0,6" />
+            <TextBox x:Name="StoragePathTextBox" Height="42" Padding="12,10" Margin="0,0,0,14" />
+
+            <TextBlock Text="蜂哥切换阈值" Margin="0,0,0,6" />
+            <TextBox x:Name="ThresholdTextBox" Height="42" Padding="12,10" />
+
+        </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="110" Height="44" Margin="0,0,10,0" Click="Cancel_Click">取消</Button>
+            <Button Width="120" Height="44" Background="#1C6C59" Foreground="White" BorderThickness="0" Click="Save_Click">保存</Button>
+        </StackPanel>
+    </Grid>
+</Window>

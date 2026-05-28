@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClueVault v2 极速归档 Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">CV</div>
+          <div>
+            <strong>ClueVault</strong>
+            <span>极速归档 Demo</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" type="button" data-view="archive">快速归档</button>
+          <button class="nav-item" type="button" data-view="records">今日记录</button>
+          <button class="nav-item" type="button" data-view="knowledge">经验库</button>
+          <button class="nav-item" type="button" data-view="settings">配置中心</button>
+        </nav>
+
+        <div class="demo-note">
+          <strong>Demo 边界</strong>
+          <p>验证“拖入文件、选择专业、归档到共享盘”的主路径。不复制真实文件，不写入真实共享盘。</p>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">v2 MVP</p>
+            <h1 id="viewTitle">快速归档</h1>
+          </div>
+          <div class="status-pill" id="configStatus">未完成配置</div>
+        </header>
+
+        <section class="view active" id="archiveView" aria-labelledby="archiveTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="archiveTitle">悬浮窗快速归档</h2>
+              <p>日常主路径：从微信拖文件到桌面悬浮窗，弹出独立小面板完成归档。</p>
+            </div>
+            <button class="button secondary" type="button" id="resetArchiveButton">清空待归档</button>
+          </div>
+
+          <div class="desktop-preview panel">
+            <div>
+              <strong>桌面置顶悬浮窗预览</strong>
+              <p>正式应用中它是 Windows 桌面置顶小窗，可拖动位置，支持替换蛙弟 / 蜂哥形象。拖入文件后，只弹出右侧的小型快速归档面板。</p>
+            </div>
+            <div class="floating-preview-card" aria-label="桌面悬浮窗预览">
+              <div class="floating-preview-head">
+                <img id="previewMascot" src="../ClueVault.Desktop/Assets/frogdi-confused-final.png" alt="蛙弟形象" />
+                <span>置顶</span>
+              </div>
+              <div class="floating-preview-body">
+                <span id="previewStatus">拖入模型快速归档</span>
+                <small id="previewCount">今日已归档：0</small>
+              </div>
+              <button class="button secondary small" type="button" id="previewDropButton">模拟拖入模型</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-heading">
+              <div>
+                <h2>快速归档面板规则</h2>
+                <p>默认只展示文件和专业。项目名、用户来源、备注都收进“更多信息”，用户来源默认微信群。</p>
+              </div>
+              <button class="button secondary" type="button" id="openQuickPanelButton">打开小面板预览</button>
+            </div>
+            <div class="drop-zone" id="dropZone">
+              <strong>这里模拟悬浮窗拖入区域</strong>
+              <span>正式版应直接从桌面悬浮窗接收文件</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="recordsView" aria-labelledby="recordsTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="recordsTitle">今日归档记录</h2>
+              <p>用于回看今天交给测试组的文件。</p>
+            </div>
+            <button class="button secondary" type="button" id="seedRecordButton">添加示例记录</button>
+          </div>
+          <div class="panel table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>专业</th>
+                  <th>项目名</th>
+                  <th>用户来源</th>
+                  <th>备注</th>
+                  <th>文件数</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="recordsTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="view" id="knowledgeView" aria-labelledby="knowledgeTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="knowledgeTitle">经验库</h2>
+              <p>独立记录可复用客服经验，不和模型归档绑定。</p>
+            </div>
+          </div>
+
+          <div class="workspace-grid">
+            <form class="panel form-stack">
+              <label class="field">
+                <span>关键词</span>
+                <input id="knowledgeKeyword" type="text" value="模型打开异常" />
+              </label>
+              <label class="field">
+                <span>适用场景</span>
+                <input id="knowledgeScene" type="text" value="用户反馈模型打开或显示不正常" />
+              </label>
+              <label class="field tall">
+                <span>回复经验</span>
+                <textarea id="knowledgeContent">先收集模型文件、软件版本、截图，再交给测试组验证。回复用户时说明已收到模型，会安排测试确认。</textarea>
+              </label>
+              <div class="action-row compact">
+                <button class="button primary" type="button" id="saveKnowledgeButton">保存经验</button>
+                <button class="button ghost" type="button" id="clearKnowledgeButton">清空</button>
+              </div>
+              <div class="message neutral" id="knowledgeMessage">经验库是独立流程，适合有空或遇到高价值回复时快速记录。</div>
+            </form>
+
+            <div class="panel">
+              <div class="attachment-head">
+                <strong>经验草稿</strong>
+                <span id="knowledgeCount">0 条</span>
+              </div>
+              <ul class="knowledge-list" id="knowledgeList"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="settingsView" aria-labelledby="settingsTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="settingsTitle">配置中心</h2>
+              <p>配置本地身份、共享盘根目录、专业文件夹和悬浮窗。</p>
+            </div>
+          </div>
+
+          <div class="settings-layout">
+            <div class="settings-menu">
+              <button class="settings-tab active" type="button">个人身份</button>
+              <button class="settings-tab" type="button">共享盘</button>
+              <button class="settings-tab" type="button">专业文件夹</button>
+              <button class="settings-tab" type="button">悬浮窗</button>
+            </div>
+            <form class="panel form-grid">
+              <label class="field">
+                <span>姓名 / 昵称 <b>*</b></span>
+                <input id="operatorName" type="text" value="张三" />
+              </label>
+              <label class="field">
+                <span>共享盘根目录 <b>*</b></span>
+                <input id="shareRoot" type="text" value="\\\\server\\share" />
+              </label>
+              <label class="field wide">
+                <span>专业文件夹</span>
+                <input id="disciplinesInput" type="text" value="建筑,结构,给排水,暖通,电气,其他" />
+              </label>
+              <label class="switch wide">
+                <input id="floatingEnabled" type="checkbox" checked />
+                <span>启用悬浮窗</span>
+              </label>
+              <label class="switch wide">
+                <input id="screenshotEnabled" type="checkbox" />
+                <span>拖入文件后提示框选聊天截图</span>
+              </label>
+              <label class="field wide">
+                <span>蜂哥切换阈值</span>
+                <input id="mascotThreshold" type="number" min="1" value="1" />
+              </label>
+              <div class="message neutral wide">默认显示蛙弟；当日归档数达到阈值后自动切换蜂哥。鼠标悬停不展开。</div>
+              <div class="action-row full">
+                <button class="button ghost" type="button" id="checkShareButton">校验共享盘</button>
+                <button class="button primary" type="button" id="saveSettingsButton">保存设置</button>
+              </div>
+            </form>
+          </div>
+          <div class="message neutral" id="settingsMessage">Demo 默认已有配置，可直接验证归档流程。</div>
+        </section>
+      </main>
+    </div>
+
+    <div class="floating-widget mini" id="floatingWidget" tabindex="0" role="button" aria-label="ClueVault 悬浮归档入口">
+      <div class="floating-title-row">
+        <img id="floatingMascot" src="../ClueVault.Desktop/Assets/frogdi-confused-final.png" alt="当前悬浮窗形象" />
+        <button type="button" id="toggleFloatButton" aria-label="切换悬浮窗大小">收起</button>
+      </div>
+      <span id="floatingStatus">拖入模型快速归档</span>
+      <small id="floatingCount">今日已归档：0</small>
+      <button type="button" id="simulateDropButton">模拟拖入文件</button>
+    </div>
+
+    <aside class="quick-archive-panel" id="quickArchivePanel" aria-hidden="true" aria-label="快速归档小面板">
+      <div class="quick-panel-head">
+        <div>
+          <strong>快速归档</strong>
+          <span>拖入后的小面板</span>
+        </div>
+        <button class="button ghost small" type="button" id="closeQuickPanelButton">关闭</button>
+      </div>
+
+      <div class="attachment-head">
+        <strong>待归档文件</strong>
+        <span id="fileCount">0 个</span>
+      </div>
+      <ul class="file-list compact-file-list" id="fileList"></ul>
+      <div class="button-row">
+        <button class="button secondary small" type="button" data-add-file="model">添加模型</button>
+        <button class="button secondary small" type="button" data-add-file="zip">添加压缩包</button>
+        <button class="button secondary small" type="button" data-add-file="image">添加截图</button>
+      </div>
+
+      <div class="screenshot-step" id="screenshotStep">
+        <div>
+          <strong>聊天截图</strong>
+          <span id="screenshotStatus">设置未开启，当前不提示截图。</span>
+        </div>
+        <button class="button secondary small" type="button" id="captureScreenshotButton">模拟框选截图</button>
+      </div>
+
+      <div class="field">
+        <span>归档专业 <b>*</b></span>
+        <div class="discipline-grid compact-discipline-grid" id="disciplineGrid" role="radiogroup" aria-label="归档专业">
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="建筑">建筑</button>
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="结构">结构</button>
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="给排水">给排水</button>
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="暖通">暖通</button>
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="电气">电气</button>
+          <button class="discipline-option" type="button" role="radio" aria-checked="false" data-discipline="其他">其他</button>
+        </div>
+      </div>
+
+      <details class="more-details">
+        <summary>更多信息（可不填）</summary>
+        <label class="field">
+          <span>项目名</span>
+          <input id="projectName" type="text" value="" placeholder="默认不填" />
+        </label>
+        <label class="field">
+          <span>用户来源</span>
+          <input id="sourceName" type="text" value="微信群" />
+        </label>
+        <label class="field">
+          <span>备注</span>
+          <textarea id="archiveNote" placeholder="可空"></textarea>
+        </label>
+        <label class="switch">
+          <input id="simulateShareFailure" type="checkbox" />
+          <span>模拟共享盘不可写</span>
+        </label>
+      </details>
+
+      <div class="quick-actions">
+        <button class="button primary archive-submit" type="button" id="archiveButton" disabled>归档到共享盘</button>
+        <button class="button ghost" type="button" id="openSettingsButton">配置</button>
+      </div>
+      <div class="quick-result" id="resultCard"></div>
+    </aside>
+    <div class="toast" id="archiveMessage" role="status" aria-live="polite"></div>
+
+    <div class="experience-drawer" id="noteDrawer" aria-hidden="true">
+      <div class="drawer-panel">
+        <div class="section-heading">
+          <div>
+            <h2>修改归档备注</h2>
+            <p>保存后会模拟同步到该归档目录中的 归档信息.md。</p>
+          </div>
+          <button class="button ghost" type="button" id="closeNoteButton">关闭</button>
+        </div>
+        <label class="field tall">
+          <span>备注</span>
+          <textarea id="recordNoteEditor"></textarea>
+        </label>
+        <div class="action-row">
+          <button class="button primary" type="button" id="saveRecordNoteButton">保存并同步</button>
+        </div>
+        <div class="message neutral" id="noteMessage">当前 Demo 只模拟同步，不写入真实共享盘。</div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

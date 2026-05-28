@@ -1,0 +1,32 @@
+<Window x:Class="ClueVault.Desktop.FloatingWidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="112"
+        Height="132"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="打开主窗口" Click="OpenMain_Click" />
+            <Separator />
+            <MenuItem Header="退出 ClueVault" Click="Exit_Click" />
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Grid>
+        <Border Width="104" Height="124" VerticalAlignment="Center" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+            <Image x:Name="AvatarImage" Stretch="Uniform">
+                <Image.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="10" Color="#2A332F" Opacity="0.18" />
+                </Image.Effect>
+            </Image>
+        </Border>
+    </Grid>
+</Window>
