@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
@@ -61,6 +63,213 @@ public static class ShortcutService
         shortcut.Save();
 
         return shortcutPath;
+    }
+}
+
+public static class UpdateService
+{
+    private const string LatestReleaseApiUrl = "https://api.github.com/repos/JOKER120YL/ClueVault/releases/latest";
+    private const string ReleaseAssetName = "ClueVault-v";
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
+    public static async Task<UpdateCheckResult> CheckLatestAsync()
+    {
+        try
+        {
+            return await CheckLatestFromApiAsync();
+        }
+        catch
+        {
+            return await CheckLatestFromLatestRedirectAsync();
+        }
+    }
+
+    private static async Task<UpdateCheckResult> CheckLatestFromApiAsync()
+    {
+        using var response = await HttpClient.GetAsync(LatestReleaseApiUrl);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        var root = document.RootElement;
+        var tagName = root.GetProperty("tag_name").GetString() ?? "";
+        var latestVersion = NormalizeVersion(tagName);
+        var currentVersion = GetCurrentVersion();
+        var asset = FindWindowsZipAsset(root);
+        var hasUpdate = TryParseVersion(latestVersion, out var latest)
+            && TryParseVersion(currentVersion, out var current)
+            && latest.CompareTo(current) > 0;
+
+        return new UpdateCheckResult
+        {
+            HasUpdate = hasUpdate,
+            CurrentVersion = currentVersion,
+            LatestVersion = latestVersion,
+            ReleaseUrl = root.GetProperty("html_url").GetString() ?? "",
+            ReleaseNotes = root.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "",
+            DownloadUrl = asset.DownloadUrl,
+            AssetName = asset.Name
+        };
+    }
+
+    private static async Task<UpdateCheckResult> CheckLatestFromLatestRedirectAsync()
+    {
+        using var response = await HttpClient.GetAsync("https://github.com/JOKER120YL/ClueVault/releases/latest");
+        response.EnsureSuccessStatusCode();
+
+        var latestUri = response.RequestMessage?.RequestUri?.ToString() ?? "";
+        var marker = "/releases/tag/";
+        var markerIndex = latestUri.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            throw new InvalidOperationException("无法识别 GitHub 最新版本地址。");
+        }
+
+        var tagName = Uri.UnescapeDataString(latestUri[(markerIndex + marker.Length)..]).Trim('/');
+        var latestVersion = NormalizeVersion(tagName);
+        var currentVersion = GetCurrentVersion();
+        var assetName = $"ClueVault-v{latestVersion}-win-x64.zip";
+        var downloadUrl = $"https://github.com/JOKER120YL/ClueVault/releases/download/{tagName}/{assetName}";
+        var hasUpdate = TryParseVersion(latestVersion, out var latest)
+            && TryParseVersion(currentVersion, out var current)
+            && latest.CompareTo(current) > 0;
+
+        return new UpdateCheckResult
+        {
+            HasUpdate = hasUpdate,
+            CurrentVersion = currentVersion,
+            LatestVersion = latestVersion,
+            ReleaseUrl = latestUri,
+            ReleaseNotes = "",
+            DownloadUrl = downloadUrl,
+            AssetName = assetName
+        };
+    }
+
+    public static async Task<string> DownloadUpdateAsync(UpdateCheckResult update, IProgress<string>? progress = null)
+    {
+        if (string.IsNullOrWhiteSpace(update.DownloadUrl))
+        {
+            throw new InvalidOperationException("最新 Release 中没有找到 Windows x64 zip 发布包。");
+        }
+
+        var updateDirectory = Path.Combine(AppPaths.UserDataDirectory, "updates", update.LatestVersion);
+        Directory.CreateDirectory(updateDirectory);
+        var zipPath = Path.Combine(updateDirectory, update.AssetName);
+
+        progress?.Report("正在下载更新包...");
+        using var response = await HttpClient.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        await using var source = await response.Content.ReadAsStreamAsync();
+        await using var target = File.Create(zipPath);
+        await source.CopyToAsync(target);
+
+        return zipPath;
+    }
+
+    public static void StartUpdaterAndExit(string zipPath)
+    {
+        var appDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var executablePath = Environment.ProcessPath ?? Path.Combine(appDirectory, "ClueVault.Desktop.exe");
+        var scriptPath = Path.Combine(AppPaths.UserDataDirectory, "updates", "apply-update.cmd");
+        var processId = Environment.ProcessId;
+        Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
+
+        var script = RenderUpdateScript(zipPath, appDirectory, executablePath, processId);
+        File.WriteAllText(scriptPath, script, Encoding.UTF8);
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = scriptPath,
+            UseShellExecute = true,
+            WorkingDirectory = appDirectory,
+            WindowStyle = ProcessWindowStyle.Normal
+        });
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"ClueVaultDesktop/{GetCurrentVersion()}");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+        return client;
+    }
+
+    private static (string Name, string DownloadUrl) FindWindowsZipAsset(JsonElement releaseRoot)
+    {
+        if (!releaseRoot.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+        {
+            return ("", "");
+        }
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = asset.GetProperty("name").GetString() ?? "";
+            if (name.StartsWith(ReleaseAssetName, StringComparison.OrdinalIgnoreCase)
+                && name.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase))
+            {
+                return (name, asset.GetProperty("browser_download_url").GetString() ?? "");
+            }
+        }
+
+        return ("", "");
+    }
+
+    private static string GetCurrentVersion() =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
+
+    private static string NormalizeVersion(string tagName) =>
+        tagName.Trim().TrimStart('v', 'V');
+
+    private static bool TryParseVersion(string value, out Version version) =>
+        Version.TryParse(NormalizeVersion(value), out version!);
+
+    private static string RenderUpdateScript(string zipPath, string appDirectory, string executablePath, int processId)
+    {
+        var extractDirectory = Path.Combine(AppPaths.UserDataDirectory, "updates", "extract");
+        return $"""
+@echo off
+chcp 65001 >nul
+setlocal
+set "ZIP={zipPath}"
+set "APPDIR={appDirectory}"
+set "EXE={executablePath}"
+set "EXTRACT={extractDirectory}"
+set "PID={processId}"
+
+echo 正在等待 ClueVault 退出...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id %PID% -Timeout 60 -ErrorAction SilentlyContinue"
+
+echo 正在解压更新包...
+if exist "%EXTRACT%" rmdir /s /q "%EXTRACT%"
+mkdir "%EXTRACT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%EXTRACT%' -Force"
+if errorlevel 1 goto failed
+
+set "SOURCE=%EXTRACT%"
+for /r "%EXTRACT%" %%F in (ClueVault.Desktop.exe) do (
+    set "SOURCE=%%~dpF"
+    goto source_found
+)
+
+:source_found
+if not exist "%SOURCE%\ClueVault.Desktop.exe" goto failed
+
+echo 正在覆盖程序文件...
+robocopy "%SOURCE%" "%APPDIR%" /E /R:2 /W:1 /XD updates >nul
+if %ERRORLEVEL% GEQ 8 goto failed
+
+echo 更新完成，正在重启 ClueVault...
+start "" "%EXE%"
+exit /b 0
+
+:failed
+echo.
+echo 更新失败。你可以关闭窗口后手动下载新版 zip 覆盖当前目录。
+pause
+exit /b 1
+""";
     }
 }
 

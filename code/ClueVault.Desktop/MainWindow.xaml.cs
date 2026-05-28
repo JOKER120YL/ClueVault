@@ -342,9 +342,68 @@ public partial class MainWindow : Window
         OpenUrl("https://github.com/JOKER120YL/ClueVault");
     }
 
-    private void OpenReleases_Click(object sender, RoutedEventArgs e)
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
     {
-        OpenUrl("https://github.com/JOKER120YL/ClueVault/releases");
+        CheckUpdateButton.IsEnabled = false;
+        UpdateStatusText.Text = "正在检查 GitHub Releases...";
+
+        try
+        {
+            var update = await UpdateService.CheckLatestAsync();
+            if (!update.HasUpdate)
+            {
+                UpdateStatusText.Text = $"当前已是最新版本 v{update.CurrentVersion}。";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(update.DownloadUrl))
+            {
+                UpdateStatusText.Text = $"发现新版本 v{update.LatestVersion}，但没有找到 Windows x64 zip 发布包。";
+                OpenUrl(update.ReleaseUrl);
+                return;
+            }
+
+            var confirm = System.Windows.MessageBox.Show(
+                this,
+                $"发现新版本 v{update.LatestVersion}。\n\n是否现在下载并更新？程序会自动退出、覆盖文件并重启。",
+                "发现更新",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (confirm != MessageBoxResult.Yes)
+            {
+                UpdateStatusText.Text = $"已取消更新。可稍后进入关于页面重新检查。";
+                return;
+            }
+
+            var progress = new Progress<string>(message => UpdateStatusText.Text = message);
+            var zipPath = await UpdateService.DownloadUpdateAsync(update, progress);
+            UpdateStatusText.Text = "下载完成，正在启动更新器...";
+            UpdateService.StartUpdaterAndExit(zipPath);
+
+            if (System.Windows.Application.Current is App app)
+            {
+                app.ExitApplication();
+            }
+        }
+        catch (Exception error)
+        {
+            UpdateStatusText.Text = "检查或更新失败。";
+            var open = System.Windows.MessageBox.Show(
+                this,
+                $"{error.Message}\n\n是否打开 GitHub Releases 手动下载？",
+                "更新失败",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (open == MessageBoxResult.Yes)
+            {
+                OpenUrl("https://github.com/JOKER120YL/ClueVault/releases");
+            }
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+        }
     }
 
     private static void OpenUrl(string url)

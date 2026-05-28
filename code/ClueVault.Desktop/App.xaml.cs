@@ -153,7 +153,7 @@ public partial class App : System.Windows.Application
         _mainWindow.Activate();
     }
 
-    private void ExitApplication()
+    public void ExitApplication()
     {
         IsExiting = true;
         _trayIcon?.Dispose();
