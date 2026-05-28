@@ -1,37 +1,113 @@
-# bug反馈助手
+# ClueVault
 
-这是 `bug反馈助手` 的开发工作区，用于集中管理产品文档、设计素材、报错截图、参考资料、开发笔记和代码实现。
+ClueVault 是一个 Windows 桌面模型归档助手，用于把微信群收到的用户模型、压缩包和截图快速归档到共享盘对应专业目录，方便测试组后续取用和验证。
 
-## 目录说明
+当前版本优先解决“少填字段、快速归档、可追溯”这件事，不要求提交人先写完整问题描述。
 
-- `docs/`：产品文档区，存放 `PRD`、需求迭代记录、关键决策、流程说明等
-- `assets/design/`：设计素材，存放效果图、界面稿、UI 参考
-- `assets/bug/`：测试报错截图，存放异常截图、复现证据、问题录屏等
-- `assets/reference/`：参考图与灵感收集，存放竞品截图、视觉参考、交互灵感
-- `notes/`：学习笔记，存放开发踩坑记录、技术方案、调研结论
-- `code/`：独立代码区，后续新增代码统一放在这里
+## 适用场景
 
-## 当前代码分区
+- 运营或客服在微信群收到用户发来的模型文件。
+- 需要把模型材料快速交给测试组。
+- 用户问题还没解决，暂时不适合整理成完整经验或正式问题单。
+- 需要查看当天归档记录，并在必要时补充备注。
 
-- [code/ClueVault.Desktop](F:\Code space\EasyBIM helper\bug反馈助手\code\ClueVault.Desktop)：当前主线 `WPF` 桌面版本
-- [code/electron-prototype](F:\Code space\EasyBIM helper\bug反馈助手\code\electron-prototype)：旧版 `Electron + React` 原型，保留作参考
-- [code/flow-demo](F:\Code space\EasyBIM helper\bug反馈助手\code\flow-demo)：`v2` 流程验证静态 Demo，不作为正式技术架构
+## 下载与安装
 
-## 当前文档与素材
+请到 GitHub Releases 下载最新版本：
 
-- [docs/prd-v2.md](F:\Code space\EasyBIM helper\bug反馈助手\docs\prd-v2.md)：当前主需求文档，包含 Markdown 线稿与 Demo 验收标准
-- [docs/architecture-decision-v2.md](F:\Code space\EasyBIM helper\bug反馈助手\docs\architecture-decision-v2.md)：`v2` 技术架构决策，正式 MVP 走 `WPF / .NET 8` 主线
-- [docs/mvp-implementation-plan-v2.md](F:\Code space\EasyBIM helper\bug反馈助手\docs\mvp-implementation-plan-v2.md)：正式 MVP 分阶段实施计划
-- [docs/prd-v1.md](F:\Code space\EasyBIM helper\bug反馈助手\docs\prd-v1.md)：历史产品需求文档
-- [assets/design/floating-mascot-concepts.png](F:\Code space\EasyBIM helper\bug反馈助手\assets\design\floating-mascot-concepts.png)：悬浮窗形象概念稿
-- [notes/migration-2026-05-27.md](F:\Code space\EasyBIM helper\bug反馈助手\notes\migration-2026-05-27.md)：本次目录迁移与选型说明
+[Releases](https://github.com/JOKER120YL/ClueVault/releases)
 
-## 使用约定
+推荐下载：
 
-- 所有产品、需求、过程文档统一放入 `docs/`
-- 所有图片类资料统一放入 `assets/` 下对应子目录
-- 开发过程中的经验总结、问题复盘统一记录到 `notes/`
-- 后续新增业务代码、脚本、组件和配置优先放入 `code/`
-- 根目录尽量只保留总览文件，例如 `README.md`、`AGENTS.md`
+- `ClueVault-v版本号-setup-win-x64.exe`
 
-更多开发规范请见 [AGENTS.md](F:/Code%20space/EasyBIM%20helper/bug反馈助手/AGENTS.md)。
+安装包会安装到当前用户目录，不需要管理员权限，并可创建桌面快捷方式和开始菜单入口。
+
+## 基本用法
+
+1. 首次启动后配置姓名和共享盘目录。
+2. 将用户发来的模型文件拖到桌面悬浮窗。
+3. 在快速归档面板选择专业：建筑、结构、暖通、给排水、电气或其他。
+4. 点击归档到共享盘。
+5. 在主窗口的今日记录中查看归档结果。
+
+归档后会在共享盘专业目录下生成一个归档文件夹，并写入 `归档信息.md`。
+
+示例：
+
+```text
+共享盘目录/
+  建筑/
+    2026-05-28_微信群_张三_153012/
+      用户模型.rvt
+      归档信息.md
+```
+
+## 更新机制
+
+从 `v0.2.1` 开始，ClueVault 支持在软件内检查更新：
+
+1. 打开主窗口。
+2. 进入关于页面。
+3. 点击检查更新。
+4. 发现新版本后，软件会下载 Release 中的 zip 更新包。
+5. 程序退出后由独立更新脚本覆盖安装目录并重启。
+
+注意：`v0.2.0` 本身没有自动更新逻辑，已使用 `v0.2.0` 的用户需要手动安装 `v0.2.1` 一次。之后再发布新版本，就可以通过软件内更新。
+
+每次发布 Release 时建议同时上传：
+
+```text
+ClueVault-v版本号-setup-win-x64.exe
+ClueVault-v版本号-win-x64.zip
+ClueVault-v版本号-win-x64.zip.sha256
+```
+
+其中 `.exe` 给用户首次安装使用，`.zip` 给软件内自动更新使用。
+
+## 当前边界
+
+- 当前版本不接入真实 AI。
+- 当前版本不强制填写问题描述。
+- 当前版本主要用于共享盘归档，不替代完整测试管理系统。
+- 经验库、截图自动总结、经验导入导出等能力仍在后续规划中。
+
+## 技术栈
+
+- .NET 8
+- WPF
+- Windows Forms NotifyIcon
+- Inno Setup
+
+## 项目结构
+
+```text
+code/
+  ClueVault.Desktop/   Windows 桌面端主程序
+  installer/           Inno Setup 安装包脚本
+  flow-demo/           早期流程验证 Demo
+docs/                  PRD、发布说明和技术决策
+assets/                设计素材、图标、参考资料
+notes/                 开发笔记和排查记录
+```
+
+## 本地构建
+
+构建桌面端：
+
+```powershell
+dotnet build code\ClueVault.Desktop\ClueVault.Desktop.csproj
+```
+
+发布 Windows x64 自包含目录：
+
+```powershell
+dotnet publish code\ClueVault.Desktop\ClueVault.Desktop.csproj -c Release -r win-x64 --self-contained true -o dist\ClueVault-v0.2.1-win-x64
+```
+
+生成安装包需要安装 Inno Setup，然后运行：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" "code\installer\ClueVault.iss"
+```
+
