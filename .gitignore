@@ -4,3 +4,7 @@ release/
 *.log
 **/bin/
 **/obj/
+
+# Internal operating docs and screenshots for Feishu only.
+docs/feishu-cluevault-intro.md
+assets/design/feishu-guide/
