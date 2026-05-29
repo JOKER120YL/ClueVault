@@ -444,7 +444,7 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="当前版本" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.6" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.7" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="项目地址" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="github.com/JOKER120YL/ClueVault" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="更新渠道" Foreground="{StaticResource MutedBrush}" />
@@ -466,22 +466,13 @@
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,14">
                                         <TextBlock Text="更新日志" FontSize="22" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.6" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
+                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.7" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
                                     </DockPanel>
                                     <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18">
                                         <StackPanel>
-                                            <TextBlock Text="新增悬浮窗极速归档流程。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增专业目录归档和归档信息.md 输出。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增系统托盘入口、悬浮窗右键菜单和退出功能。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增关于页面、版本信息和 GitHub Releases 更新入口。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增软件内自动检查、下载并覆盖更新的基础机制。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增每日一次后台检查更新，有新版本时显示 NEW 提醒。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="修复自动更新器启动后无反馈的问题，失败时会保留窗口并写入 update.log。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="修复首次打开主窗口时今日/历史归档筛选控件导致的启动异常。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增归档统计事件、本机/共享盘统计文件和统计看板。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="修复安装器创建公共桌面快捷方式时权限不足的问题。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="新增今日/历史归档切换、剪贴板截图归档和本地日志。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
-                                            <TextBlock Text="优化主窗口信息架构和任务栏图标。" Foreground="{StaticResource InkBrush}" />
+                                            <TextBlock Text="归档文件夹名称更清楚：自动使用项目名或模型名，不再默认追加时间数字。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                            <TextBlock Text="优化多人使用时的统计写入方式，降低共享盘统计文件冲突风险。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                            <TextBlock Text="完整历史记录请查看 GitHub Releases。" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
