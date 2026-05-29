@@ -17,12 +17,10 @@
 
 本版本已增加启动期空值保护，窗口加载完成后仍会正常应用默认的今日归档筛选。
 
-## 发布附件
+## 文件说明
 
-发布 GitHub Release 时请同时上传：
+- `ClueVault-v0.2.5-setup-win-x64.exe`：首次安装或覆盖安装使用。
+- `ClueVault-v0.2.5-win-x64.zip`：软件内自动更新使用。
+- `ClueVault-v0.2.5-win-x64.zip.sha256`：校验更新包完整性。
 
-```text
-ClueVault-v0.2.5-setup-win-x64.exe
-ClueVault-v0.2.5-win-x64.zip
-ClueVault-v0.2.5-win-x64.zip.sha256
-```
+普通用户只需要下载并运行 `.exe` 安装包。
