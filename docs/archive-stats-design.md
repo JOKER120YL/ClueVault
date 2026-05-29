@@ -15,9 +15,13 @@
 每次归档成功后，软件会写两份统计事件：
 
 - 本机明细：`%LOCALAPPDATA%\ClueVaultDesktop\archive-events.jsonl`
-- 共享盘明细：`共享目录\_ClueVaultStats\archive-events-YYYY-MM.jsonl`
+- 共享盘明细：`共享目录\_ClueVaultStats\YYYY-MM\archive-events-客户端ID.jsonl`
 
 共享盘统计写入失败不会影响主归档流程，只会写入本地日志。
+
+共享盘统计按月份和客户端拆分文件，避免多名运营同时归档时都追加写入同一个 JSONL 文件。
+统计看板读取时会汇总共享盘内所有统计文件，并按 `EventId` 去重。
+旧版 `共享目录\_ClueVaultStats\archive-events-YYYY-MM.jsonl` 文件仍会被读取，历史数据不会丢失。
 
 ## 事件字段
 
@@ -52,7 +56,7 @@ JSONL 一行通常不到 1KB。
 - 每天 100 次归档：约 100KB/天。
 - 每月 3000 次归档：约 3MB/月。
 
-因此先按月拆分共享盘统计文件即可，不需要数据库。
+因此先按月份 + 客户端拆分共享盘统计文件即可，不需要数据库。
 
 ## 后续同步到飞书
 

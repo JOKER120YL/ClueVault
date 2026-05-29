@@ -525,6 +525,7 @@ public static class ArchiveEventService
 {
     private static readonly JsonSerializerOptions JsonOptions = new();
     private const string SharedStatsDirectoryName = "_ClueVaultStats";
+    private static readonly SemaphoreSlim LocalAppendLock = new(1, 1);
 
     public static async Task RecordAsync(AppConfig config, SubmissionHistoryEntry entry)
     {
@@ -553,7 +554,15 @@ public static class ArchiveEventService
     {
         Directory.CreateDirectory(AppPaths.UserDataDirectory);
         var line = JsonSerializer.Serialize(record, JsonOptions);
-        await File.AppendAllTextAsync(AppPaths.ArchiveEventsPath, line + Environment.NewLine, Encoding.UTF8);
+        await LocalAppendLock.WaitAsync();
+        try
+        {
+            await File.AppendAllTextAsync(AppPaths.ArchiveEventsPath, line + Environment.NewLine, Encoding.UTF8);
+        }
+        finally
+        {
+            LocalAppendLock.Release();
+        }
     }
 
     private static void TryAppendShared(AppConfig config, ArchiveEventRecord record)
@@ -567,7 +576,10 @@ public static class ArchiveEventService
 
             var directory = Path.Combine(config.StoragePath, SharedStatsDirectoryName);
             Directory.CreateDirectory(directory);
-            var filePath = Path.Combine(directory, $"archive-events-{record.CreatedAt:yyyy-MM}.jsonl");
+            var monthDirectory = Path.Combine(directory, record.CreatedAt.ToString("yyyy-MM"));
+            Directory.CreateDirectory(monthDirectory);
+            var clientSegment = NormalizeStatsFileName(string.IsNullOrWhiteSpace(record.ClientId) ? record.MachineName : record.ClientId);
+            var filePath = Path.Combine(monthDirectory, $"archive-events-{clientSegment}.jsonl");
             var line = JsonSerializer.Serialize(record, JsonOptions);
             File.AppendAllText(filePath, line + Environment.NewLine, Encoding.UTF8);
         }
@@ -575,6 +587,13 @@ public static class ArchiveEventService
         {
             AppLogger.Error(error, "Append shared archive event failed");
         }
+    }
+
+    private static string NormalizeStatsFileName(string input)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(input.Select(ch => invalid.Contains(ch) ? '-' : ch).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "unknown-client" : cleaned[..Math.Min(cleaned.Length, 80)];
     }
 
     private static async Task<string> GetClientIdAsync()
@@ -680,6 +699,11 @@ public static class ArchiveStatsReader
         if (!string.IsNullOrWhiteSpace(sharedStatsDirectory) && Directory.Exists(sharedStatsDirectory))
         {
             foreach (var path in Directory.EnumerateFiles(sharedStatsDirectory, "archive-events-*.jsonl"))
+            {
+                yield return path;
+            }
+
+            foreach (var path in Directory.EnumerateFiles(sharedStatsDirectory, "archive-events-*.jsonl", SearchOption.AllDirectories))
             {
                 yield return path;
             }
@@ -819,9 +843,10 @@ public static class ArchiveService
 
         var createdAt = DateTime.Now;
         var title = "用户模型归档";
-        var folderName = BuildFolderName(createdAt, source, submitter, projectName);
+        var folderName = BuildFolderName(createdAt, source, submitter, projectName, attachments);
         var targetDirectory = Path.Combine(disciplineDirectory, folderName);
-        Directory.CreateDirectory(targetDirectory);
+        targetDirectory = CreateUniqueDirectory(disciplineDirectory, folderName);
+        folderName = Path.GetFileName(targetDirectory);
 
         foreach (var attachment in attachments)
         {
@@ -881,24 +906,91 @@ public static class ArchiveService
             }.Where(line => line is not null));
     }
 
-    private static string BuildFolderName(DateTime createdAt, string source, string submitter, string projectName)
+    private static string BuildFolderName(
+        DateTime createdAt,
+        string source,
+        string submitter,
+        string projectName,
+        IReadOnlyList<AttachmentItem> attachments)
     {
-        var safeSource = NormalizeFileName(source);
+        var safeSource = NormalizeFileName(string.IsNullOrWhiteSpace(source) ? "微信群" : source);
         var safeSubmitter = NormalizeFileName(submitter);
-        var safeProject = NormalizeFileName(projectName);
-        var prefix = string.IsNullOrWhiteSpace(safeProject)
-            ? $"{createdAt:yyyy-MM-dd}_{safeSource}_{safeSubmitter}"
-            : $"{createdAt:yyyy-MM-dd}_{safeSource}_{safeSubmitter}_{safeProject}";
+        var safeProject = NormalizeFileName(GetProjectNameSegment(projectName, attachments), 30);
 
-        return $"{prefix}_{createdAt:HHmmss}";
+        return $"{createdAt:yyyy-MM-dd}_{safeSource}_{safeSubmitter}_{safeProject}";
     }
 
-    private static string NormalizeFileName(string input)
+    private static string GetProjectNameSegment(string projectName, IReadOnlyList<AttachmentItem> attachments)
+    {
+        if (!string.IsNullOrWhiteSpace(projectName))
+        {
+            return projectName;
+        }
+
+        var primaryAttachment = attachments.FirstOrDefault(item => item.Role == "model") ?? attachments.FirstOrDefault();
+        if (primaryAttachment is null)
+        {
+            return "模型归档";
+        }
+
+        var name = Path.GetFileNameWithoutExtension(primaryAttachment.Name);
+        return string.IsNullOrWhiteSpace(name) ? "模型归档" : name;
+    }
+
+    private static string CreateUniqueDirectory(string parentDirectory, string folderName)
+    {
+        for (var index = 1; index <= 999; index++)
+        {
+            var candidateName = index == 1 ? folderName : $"{folderName}-{index}";
+            var candidatePath = Path.Combine(parentDirectory, candidateName);
+            if (Directory.Exists(candidatePath))
+            {
+                continue;
+            }
+
+            var stagingPath = Path.Combine(parentDirectory, $".cluevault-staging-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stagingPath);
+
+            try
+            {
+                Directory.Move(stagingPath, candidatePath);
+                return candidatePath;
+            }
+            catch (IOException)
+            {
+                TryDeleteDirectory(stagingPath);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                TryDeleteDirectory(stagingPath);
+                throw;
+            }
+        }
+
+        throw new IOException("同名归档目录过多，请调整项目名后重试。");
+    }
+
+    private static void TryDeleteDirectory(string directoryPath)
+    {
+        try
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath);
+            }
+        }
+        catch
+        {
+            // Best effort cleanup only. A leftover staging folder is safer than blocking archive submission.
+        }
+    }
+
+    private static string NormalizeFileName(string input, int maxLength = 60)
     {
         var invalid = Path.GetInvalidFileNameChars();
         var cleaned = new string(input.Select(ch => invalid.Contains(ch) ? ' ' : ch).ToArray());
         cleaned = string.Join(" ", cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        return string.IsNullOrWhiteSpace(cleaned) ? "" : cleaned[..Math.Min(cleaned.Length, 60)];
+        return string.IsNullOrWhiteSpace(cleaned) ? "" : cleaned[..Math.Min(cleaned.Length, maxLength)];
     }
 
     private static string InferRole(string filePath)
