@@ -556,6 +556,11 @@ public partial class MainWindow : Window
 
     private void RecordsFilter_Checked(object sender, RoutedEventArgs e)
     {
+        if (TodayRecordsToggle is null || AllRecordsToggle is null || HistoryList is null)
+        {
+            return;
+        }
+
         if (sender == TodayRecordsToggle && TodayRecordsToggle.IsChecked == true)
         {
             AllRecordsToggle.IsChecked = false;
