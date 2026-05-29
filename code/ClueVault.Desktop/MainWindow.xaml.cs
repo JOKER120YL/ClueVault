@@ -98,6 +98,8 @@ public partial class MainWindow : Window
         BuildDisciplineButtons(QuickDisciplinePanel, SelectDiscipline);
         ApplySelectedDiscipline(_selectedDisciplineId);
         await RefreshWidgetBadgeAsync();
+        await LoadUpdateBadgeAsync();
+        _ = BeginDailyUpdateCheckAsync();
 
         if (string.IsNullOrWhiteSpace(_config.DisplayName) || string.IsNullOrWhiteSpace(_config.StoragePath))
         {
@@ -392,6 +394,67 @@ public partial class MainWindow : Window
         AboutVersionText.Text = $"v{GetCurrentVersion()}";
     }
 
+    private async Task LoadUpdateBadgeAsync()
+    {
+        var state = await UpdateStateService.LoadAsync();
+        var hasUpdate = state.HasUpdate && IsNewerVersion(state.LatestVersion);
+        SetUpdateBadge(hasUpdate);
+        if (hasUpdate && !string.IsNullOrWhiteSpace(state.LatestVersion))
+        {
+            UpdateStatusText.Text = $"发现新版本 v{state.LatestVersion}，可点击检查更新。";
+        }
+        else if (state.HasUpdate)
+        {
+            state.HasUpdate = false;
+            await UpdateStateService.SaveAsync(state);
+        }
+    }
+
+    private async Task BeginDailyUpdateCheckAsync()
+    {
+        try
+        {
+            var state = await UpdateStateService.LoadAsync();
+            if (!UpdateStateService.ShouldCheckToday(state))
+            {
+                return;
+            }
+
+            var update = await UpdateService.CheckLatestAsync();
+            var latestState = UpdateStateService.FromCheckResult(update);
+            await UpdateStateService.SaveAsync(latestState);
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                SetUpdateBadge(latestState.HasUpdate);
+                if (latestState.HasUpdate)
+                {
+                    UpdateStatusText.Text = $"发现新版本 v{latestState.LatestVersion}，可点击检查更新。";
+                }
+                else if (AboutView.Visibility == Visibility.Visible)
+                {
+                    UpdateStatusText.Text = $"当前已是最新版本 v{update.CurrentVersion}。";
+                }
+            });
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Daily update check failed");
+        }
+    }
+
+    private void SetUpdateBadge(bool hasUpdate)
+    {
+        var visibility = hasUpdate ? Visibility.Visible : Visibility.Collapsed;
+        AboutNewBadge.Visibility = visibility;
+        UpdateNewBadge.Visibility = visibility;
+    }
+
+    private static bool IsNewerVersion(string latestVersion) =>
+        Version.TryParse(latestVersion.Trim().TrimStart('v', 'V'), out var latest)
+        && Version.TryParse(GetCurrentVersion(), out var current)
+        && latest.CompareTo(current) > 0;
+
     private void OpenProject_Click(object sender, RoutedEventArgs e)
     {
         OpenUrl("https://github.com/JOKER120YL/ClueVault");
@@ -405,6 +468,9 @@ public partial class MainWindow : Window
         try
         {
             var update = await UpdateService.CheckLatestAsync();
+            await UpdateStateService.SaveAsync(UpdateStateService.FromCheckResult(update));
+            SetUpdateBadge(update.HasUpdate);
+
             if (!update.HasUpdate)
             {
                 UpdateStatusText.Text = $"当前已是最新版本 v{update.CurrentVersion}。";

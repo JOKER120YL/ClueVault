@@ -14,6 +14,7 @@
 - 主面板在快速归档页支持 `Ctrl + V` 粘贴剪贴板截图。
 - 悬浮窗快速归档面板增加 `粘贴剪贴板截图` 按钮。
 - 增加本地日志文件，便于排查异常和未响应问题。
+- 启动后每天最多自动检查一次 GitHub Release，有新版本时在关于入口和更新按钮旁显示 `NEW` 提醒。
 
 ## 日志位置
 
@@ -30,4 +31,3 @@ ClueVault-v0.2.3-setup-win-x64.exe
 ClueVault-v0.2.3-win-x64.zip
 ClueVault-v0.2.3-win-x64.zip.sha256
 ```
-

@@ -66,3 +66,11 @@ public sealed class UpdateCheckResult
     public string DownloadUrl { get; init; } = "";
     public string AssetName { get; init; } = "";
 }
+
+public sealed class UpdateState
+{
+    public DateTime LastCheckedAt { get; set; }
+    public bool HasUpdate { get; set; }
+    public string LatestVersion { get; set; } = "";
+    public string ReleaseUrl { get; set; } = "";
+}

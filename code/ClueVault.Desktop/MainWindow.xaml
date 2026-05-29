@@ -136,7 +136,14 @@
                     <Button x:Name="RecordsNavButton" Style="{StaticResource NavButtonStyle}" Tag="Records" Click="Nav_Click">今日记录</Button>
                     <Button x:Name="KnowledgeNavButton" Style="{StaticResource NavButtonStyle}" Tag="Knowledge" Click="Nav_Click">经验库</Button>
                     <Button x:Name="ConfigNavButton" Style="{StaticResource NavButtonStyle}" Tag="Config" Click="Nav_Click">配置中心</Button>
-                    <Button x:Name="AboutNavButton" Style="{StaticResource NavButtonStyle}" Tag="About" Click="Nav_Click">关于</Button>
+                    <Button x:Name="AboutNavButton" Style="{StaticResource NavButtonStyle}" Tag="About" Click="Nav_Click">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="关于" VerticalAlignment="Center" />
+                            <Border x:Name="AboutNewBadge" DockPanel.Dock="Right" Background="#D9482B" CornerRadius="8" Padding="7,2" Margin="10,0,0,0" Visibility="Collapsed">
+                                <TextBlock Text="NEW" Foreground="White" FontSize="10" FontWeight="Bold" />
+                            </Border>
+                        </DockPanel>
+                    </Button>
                 </StackPanel>
 
                 <Border Grid.Row="2" Background="#FFFDF7" BorderBrush="#E1D8C8" BorderThickness="1" CornerRadius="16" Padding="14">
@@ -384,6 +391,9 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
                                         <Button Style="{StaticResource GhostButtonStyle}" Width="128" Height="42" Click="OpenProject_Click">打开项目主页</Button>
                                         <Button x:Name="CheckUpdateButton" Style="{StaticResource PrimaryButtonStyle}" Width="128" Height="42" Margin="10,0,0,0" Click="CheckUpdate_Click">检查更新</Button>
+                                        <Border x:Name="UpdateNewBadge" Background="#D9482B" CornerRadius="9" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                            <TextBlock Text="NEW" Foreground="White" FontSize="11" FontWeight="Bold" />
+                                        </Border>
                                     </StackPanel>
                                     <TextBlock x:Name="UpdateStatusText" Text="" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
                                 </StackPanel>
@@ -402,6 +412,7 @@
                                             <TextBlock Text="新增系统托盘入口、悬浮窗右键菜单和退出功能。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="新增关于页面、版本信息和 GitHub Releases 更新入口。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="新增软件内自动检查、下载并覆盖更新的基础机制。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
+                                            <TextBlock Text="新增每日一次后台检查更新，有新版本时显示 NEW 提醒。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="修复安装器创建公共桌面快捷方式时权限不足的问题。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="新增今日/历史归档切换、剪贴板截图归档和本地日志。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="优化主窗口信息架构和任务栏图标。" Foreground="{StaticResource InkBrush}" />

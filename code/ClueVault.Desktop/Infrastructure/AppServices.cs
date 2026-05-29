@@ -34,6 +34,7 @@ public static class AppPaths
     public static string ConfigPath => Path.Combine(UserDataDirectory, "config.json");
     public static string HistoryPath => Path.Combine(UserDataDirectory, "submission-history.json");
     public static string StatsPath => Path.Combine(UserDataDirectory, "submission-stats.json");
+    public static string UpdateStatePath => Path.Combine(UserDataDirectory, "update-state.json");
     public static string LogPath => Path.Combine(UserDataDirectory, "cluevault.log");
     public static string ClipboardAttachmentDirectory => Path.Combine(UserDataDirectory, "clipboard-attachments");
 }
@@ -350,6 +351,50 @@ public static class ConfigService
         var payload = JsonSerializer.Serialize(config, JsonOptions);
         await File.WriteAllTextAsync(AppPaths.ConfigPath, payload, Encoding.UTF8);
     }
+}
+
+public static class UpdateStateService
+{
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    public static async Task<UpdateState> LoadAsync()
+    {
+        Directory.CreateDirectory(AppPaths.UserDataDirectory);
+        if (!File.Exists(AppPaths.UpdateStatePath))
+        {
+            return new UpdateState();
+        }
+
+        try
+        {
+            var raw = await File.ReadAllTextAsync(AppPaths.UpdateStatePath, Encoding.UTF8);
+            return JsonSerializer.Deserialize<UpdateState>(raw) ?? new UpdateState();
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Load update state failed");
+            return new UpdateState();
+        }
+    }
+
+    public static async Task SaveAsync(UpdateState state)
+    {
+        Directory.CreateDirectory(AppPaths.UserDataDirectory);
+        var payload = JsonSerializer.Serialize(state, JsonOptions);
+        await File.WriteAllTextAsync(AppPaths.UpdateStatePath, payload, Encoding.UTF8);
+    }
+
+    public static bool ShouldCheckToday(UpdateState state) =>
+        state.LastCheckedAt.Date != DateTime.Today;
+
+    public static UpdateState FromCheckResult(UpdateCheckResult result) =>
+        new()
+        {
+            LastCheckedAt = DateTime.Now,
+            HasUpdate = result.HasUpdate,
+            LatestVersion = result.LatestVersion,
+            ReleaseUrl = result.ReleaseUrl
+        };
 }
 
 public static class StatsService
