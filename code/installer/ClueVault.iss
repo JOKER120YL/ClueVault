@@ -1,8 +1,8 @@
 #define MyAppName "ClueVault"
-#define MyAppVersion "0.2.3"
+#define MyAppVersion "0.2.4"
 #define MyAppPublisher "EasyBIM"
 #define MyAppExeName "ClueVault.Desktop.exe"
-#define PublishDir "..\..\dist\ClueVault-v0.2.3-win-x64"
+#define PublishDir "..\..\dist\ClueVault-v0.2.4-win-x64"
 
 [Setup]
 AppId={{8C89D363-616A-43F5-9D55-8A04F92D09B8}

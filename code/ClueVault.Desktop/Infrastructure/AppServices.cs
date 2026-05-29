@@ -226,7 +226,7 @@ public static class UpdateService
     {
         var appDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var executablePath = Environment.ProcessPath ?? Path.Combine(appDirectory, "ClueVault.Desktop.exe");
-        var scriptPath = Path.Combine(AppPaths.UserDataDirectory, "updates", "apply-update.cmd");
+        var scriptPath = Path.Combine(AppPaths.UserDataDirectory, "updates", "apply-update.ps1");
         var processId = Environment.ProcessId;
         Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
 
@@ -235,7 +235,8 @@ public static class UpdateService
 
         Process.Start(new ProcessStartInfo
         {
-            FileName = scriptPath,
+            FileName = "powershell.exe",
+            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
             UseShellExecute = true,
             WorkingDirectory = appDirectory,
             WindowStyle = ProcessWindowStyle.Normal
@@ -282,49 +283,77 @@ public static class UpdateService
     private static string RenderUpdateScript(string zipPath, string appDirectory, string executablePath, int processId)
     {
         var extractDirectory = Path.Combine(AppPaths.UserDataDirectory, "updates", "extract");
-        return $"""
-@echo off
-chcp 65001 >nul
-setlocal
-set "ZIP={zipPath}"
-set "APPDIR={appDirectory}"
-set "EXE={executablePath}"
-set "EXTRACT={extractDirectory}"
-set "PID={processId}"
+        var logPath = Path.Combine(AppPaths.UserDataDirectory, "updates", "update.log");
+        var script = """
+$ErrorActionPreference = 'Stop'
+$zipPath = '__ZIP_PATH__'
+$appDirectory = '__APP_DIRECTORY__'
+$executablePath = '__EXE_PATH__'
+$extractDirectory = '__EXTRACT_DIRECTORY__'
+$logPath = '__LOG_PATH__'
+$targetProcessId = __PROCESS_ID__
 
-echo 正在等待 ClueVault 退出...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id %PID% -Timeout 60 -ErrorAction SilentlyContinue"
+function Write-UpdateLog([string]$message) {
+    $line = "[{0:yyyy-MM-dd HH:mm:ss}] {1}" -f (Get-Date), $message
+    Write-Host $message
+    Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
+}
 
-echo 正在解压更新包...
-if exist "%EXTRACT%" rmdir /s /q "%EXTRACT%"
-mkdir "%EXTRACT%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%EXTRACT%' -Force"
-if errorlevel 1 goto failed
+try {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $logPath) | Out-Null
+    Write-UpdateLog "ClueVault updater started."
+    Write-UpdateLog "Zip: $zipPath"
+    Write-UpdateLog "AppDir: $appDirectory"
 
-set "SOURCE=%EXTRACT%"
-for /r "%EXTRACT%" %%F in (ClueVault.Desktop.exe) do (
-    set "SOURCE=%%~dpF"
-    goto source_found
-)
-
-:source_found
-if not exist "%SOURCE%\ClueVault.Desktop.exe" goto failed
-
-echo 正在覆盖程序文件...
-robocopy "%SOURCE%" "%APPDIR%" /E /R:2 /W:1 /XD updates >nul
-if %ERRORLEVEL% GEQ 8 goto failed
-
-echo 更新完成，正在重启 ClueVault...
-start "" "%EXE%"
-exit /b 0
-
-:failed
-echo.
-echo 更新失败。你可以关闭窗口后手动下载新版 zip 覆盖当前目录。
-pause
-exit /b 1
-""";
+    if (Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue) {
+        Write-UpdateLog "Waiting for ClueVault process $targetProcessId to exit..."
+        Wait-Process -Id $targetProcessId -Timeout 60 -ErrorAction SilentlyContinue
     }
+
+    if (Test-Path -LiteralPath $extractDirectory) {
+        Remove-Item -LiteralPath $extractDirectory -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $extractDirectory | Out-Null
+
+    Write-UpdateLog "Extracting update package..."
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDirectory -Force
+
+    $sourceExe = Get-ChildItem -LiteralPath $extractDirectory -Filter 'ClueVault.Desktop.exe' -Recurse -File | Select-Object -First 1
+    if ($null -eq $sourceExe) {
+        throw "ClueVault.Desktop.exe was not found in the update package."
+    }
+
+    $sourceDirectory = $sourceExe.DirectoryName
+    Write-UpdateLog "Copying files from $sourceDirectory..."
+    Get-ChildItem -LiteralPath $sourceDirectory -Force | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $appDirectory -Recurse -Force
+    }
+
+    Write-UpdateLog "Restarting ClueVault..."
+    Start-Process -FilePath $executablePath -WorkingDirectory $appDirectory
+    Write-UpdateLog "Update completed."
+    exit 0
+}
+catch {
+    Write-UpdateLog "Update failed: $($_.Exception.Message)"
+    Write-Host ""
+    Write-Host "更新失败。日志位置：$logPath"
+    Write-Host "请把这个窗口截图或把 update.log 发给负责人。"
+    Read-Host "按 Enter 关闭"
+    exit 1
+}
+""";
+        return script
+            .Replace("__ZIP_PATH__", EscapePowerShellSingleQuotedString(zipPath), StringComparison.Ordinal)
+            .Replace("__APP_DIRECTORY__", EscapePowerShellSingleQuotedString(appDirectory), StringComparison.Ordinal)
+            .Replace("__EXE_PATH__", EscapePowerShellSingleQuotedString(executablePath), StringComparison.Ordinal)
+            .Replace("__EXTRACT_DIRECTORY__", EscapePowerShellSingleQuotedString(extractDirectory), StringComparison.Ordinal)
+            .Replace("__LOG_PATH__", EscapePowerShellSingleQuotedString(logPath), StringComparison.Ordinal)
+            .Replace("__PROCESS_ID__", processId.ToString(), StringComparison.Ordinal);
+    }
+
+    private static string EscapePowerShellSingleQuotedString(string value) =>
+        value.Replace("'", "''", StringComparison.Ordinal);
 }
 
 public static class ConfigService
