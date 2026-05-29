@@ -8,6 +8,9 @@ using System.Reflection;
 using Microsoft.Win32;
 using ClueVault.Desktop.Infrastructure;
 using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Media;
+using MediaColor = System.Windows.Media.Color;
 
 namespace ClueVault.Desktop;
 
@@ -143,6 +146,7 @@ public partial class MainWindow : Window
     {
         ArchiveView.Visibility = viewName == "Archive" ? Visibility.Visible : Visibility.Collapsed;
         RecordsView.Visibility = viewName == "Records" ? Visibility.Visible : Visibility.Collapsed;
+        StatsView.Visibility = viewName == "Stats" ? Visibility.Visible : Visibility.Collapsed;
         KnowledgeView.Visibility = viewName == "Knowledge" ? Visibility.Visible : Visibility.Collapsed;
         ConfigView.Visibility = viewName == "Config" ? Visibility.Visible : Visibility.Collapsed;
         AboutView.Visibility = viewName == "About" ? Visibility.Visible : Visibility.Collapsed;
@@ -151,6 +155,9 @@ public partial class MainWindow : Window
             ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xF1, 0xEC))
             : System.Windows.Media.Brushes.Transparent;
         RecordsNavButton.Background = viewName == "Records"
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xF1, 0xEC))
+            : System.Windows.Media.Brushes.Transparent;
+        StatsNavButton.Background = viewName == "Stats"
             ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xF1, 0xEC))
             : System.Windows.Media.Brushes.Transparent;
         KnowledgeNavButton.Background = viewName == "Knowledge"
@@ -166,11 +173,17 @@ public partial class MainWindow : Window
         (ViewTitleText.Text, ViewDescriptionText.Text) = viewName switch
         {
             "Records" => ("今日记录", "查看今天归档了哪些模型，必要时补备注。"),
+            "Stats" => ("统计看板", "查看团队每天成功归档了多少次。"),
             "Knowledge" => ("经验库", "管理可复用的用户问答和处理经验。"),
             "Config" => ("配置中心", "管理共享盘和悬浮窗设置。"),
             "About" => ("关于", "版本信息、项目链接和更新日志。"),
             _ => ("快速归档", "将模型文件归档到共享盘专业目录。")
         };
+
+        if (viewName == "Stats")
+        {
+            _ = RefreshStatsAsync();
+        }
     }
 
     private void ApplySelectedDiscipline(string disciplineId)
@@ -233,6 +246,10 @@ public partial class MainWindow : Window
             WidgetQuickPanel.Visibility = Visibility.Collapsed;
             UpdateBugStatus($"提交成功，已写入 {entry.TargetDirectory}");
             await RefreshWidgetBadgeAsync();
+            if (StatsView.Visibility == Visibility.Visible)
+            {
+                await RefreshStatsAsync();
+            }
             return true;
         }
         catch (Exception error)
@@ -576,5 +593,114 @@ public partial class MainWindow : Window
         }
 
         ApplyHistoryFilter();
+    }
+
+    private async void RefreshStats_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshStatsAsync();
+    }
+
+    private async Task RefreshStatsAsync()
+    {
+        try
+        {
+            _config = await ConfigService.LoadAsync();
+            var summary = await ArchiveStatsReader.LoadSummaryAsync(_config);
+            StatsTodayText.Text = summary.TodayCount.ToString();
+            Stats7DaysText.Text = summary.Last7DaysCount.ToString();
+            Stats30DaysText.Text = summary.Last30DaysCount.ToString();
+            StatsSourceText.Text = $"数据来源：{summary.DataSource}，更新时间：{summary.GeneratedAt:HH:mm:ss}";
+            RenderStatsHeatmap(summary.DailyCounts);
+            RenderDisciplineStats(summary.DisciplineCounts, summary.Last30DaysCount);
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Refresh archive stats failed");
+            StatsSourceText.Text = $"读取统计失败：{error.Message}";
+        }
+    }
+
+    private void RenderStatsHeatmap(IReadOnlyList<ArchiveDailyCount> dailyCounts)
+    {
+        StatsHeatmapPanel.Children.Clear();
+        foreach (var item in dailyCounts)
+        {
+            var border = new Border
+            {
+                Height = 48,
+                Margin = new Thickness(0, 0, 8, 8),
+                CornerRadius = new CornerRadius(12),
+                Background = GetHeatBrush(item.Count),
+                ToolTip = $"{item.Date}: {item.Count} 次"
+            };
+            border.Child = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = DateTime.TryParse(item.Date, out var date) ? date.ToString("MM-dd") : item.Date,
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                        Foreground = new SolidColorBrush(MediaColor.FromRgb(0x61, 0x71, 0x6B)),
+                        FontSize = 11
+                    },
+                    new TextBlock
+                    {
+                        Text = item.Count.ToString(),
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                        Foreground = new SolidColorBrush(MediaColor.FromRgb(0x10, 0x2D, 0x25)),
+                        FontWeight = FontWeights.Bold
+                    }
+                }
+            };
+            StatsHeatmapPanel.Children.Add(border);
+        }
+    }
+
+    private void RenderDisciplineStats(IReadOnlyList<ArchiveDisciplineCount> disciplineCounts, int total)
+    {
+        StatsDisciplinePanel.Children.Clear();
+        if (disciplineCounts.Count == 0)
+        {
+            StatsDisciplinePanel.Children.Add(new TextBlock
+            {
+                Text = "近 30 天暂无归档记录。",
+                Foreground = new SolidColorBrush(MediaColor.FromRgb(0x61, 0x71, 0x6B))
+            });
+            return;
+        }
+
+        foreach (var item in disciplineCounts)
+        {
+            var percent = total <= 0 ? 0 : item.Count * 100.0 / total;
+            StatsDisciplinePanel.Children.Add(new TextBlock
+            {
+                Text = $"{item.Label}：{item.Count} 次（{percent:0.#}%）",
+                Foreground = new SolidColorBrush(MediaColor.FromRgb(0x10, 0x2D, 0x25)),
+                Margin = new Thickness(0, 0, 0, 8),
+                FontWeight = FontWeights.SemiBold
+            });
+        }
+    }
+
+    private static System.Windows.Media.Brush GetHeatBrush(int count)
+    {
+        if (count <= 0)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(0xEF, 0xF3, 0xEE));
+        }
+
+        if (count <= 2)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(0xC9, 0xE5, 0xD3));
+        }
+
+        if (count <= 5)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(0x85, 0xC3, 0x9E));
+        }
+
+        return new SolidColorBrush(MediaColor.FromRgb(0x2F, 0x8A, 0x62));
     }
 }

@@ -46,6 +46,46 @@ public sealed class SubmissionHistoryStore
     public ObservableCollection<SubmissionHistoryEntry> Entries { get; set; } = [];
 }
 
+public sealed class ArchiveEventRecord
+{
+    public string EventId { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string Date { get; set; } = "";
+    public string Submitter { get; set; } = "";
+    public string MachineName { get; set; } = "";
+    public string ClientId { get; set; } = "";
+    public string Source { get; set; } = "微信群";
+    public string DisciplineId { get; set; } = "";
+    public string DisciplineLabel { get; set; } = "";
+    public string FolderName { get; set; } = "";
+    public string TargetDirectory { get; set; } = "";
+    public int AttachmentCount { get; set; }
+    public string AppVersion { get; set; } = "";
+}
+
+public sealed class ArchiveDailyCount
+{
+    public string Date { get; set; } = "";
+    public int Count { get; set; }
+}
+
+public sealed class ArchiveDisciplineCount
+{
+    public string Label { get; set; } = "";
+    public int Count { get; set; }
+}
+
+public sealed class ArchiveStatsSummary
+{
+    public int TodayCount { get; set; }
+    public int Last7DaysCount { get; set; }
+    public int Last30DaysCount { get; set; }
+    public List<ArchiveDailyCount> DailyCounts { get; set; } = [];
+    public List<ArchiveDisciplineCount> DisciplineCounts { get; set; } = [];
+    public string DataSource { get; set; } = "";
+    public DateTime GeneratedAt { get; set; } = DateTime.Now;
+}
+
 public sealed class WidgetState
 {
     public string CurrentAvatar { get; init; } = "frogdii-idle";

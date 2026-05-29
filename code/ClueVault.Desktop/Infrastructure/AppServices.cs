@@ -34,6 +34,8 @@ public static class AppPaths
     public static string ConfigPath => Path.Combine(UserDataDirectory, "config.json");
     public static string HistoryPath => Path.Combine(UserDataDirectory, "submission-history.json");
     public static string StatsPath => Path.Combine(UserDataDirectory, "submission-stats.json");
+    public static string ArchiveEventsPath => Path.Combine(UserDataDirectory, "archive-events.jsonl");
+    public static string ClientIdPath => Path.Combine(UserDataDirectory, "client-id.txt");
     public static string UpdateStatePath => Path.Combine(UserDataDirectory, "update-state.json");
     public static string LogPath => Path.Combine(UserDataDirectory, "cluevault.log");
     public static string ClipboardAttachmentDirectory => Path.Combine(UserDataDirectory, "clipboard-attachments");
@@ -519,6 +521,185 @@ public static class StatsService
         };
 }
 
+public static class ArchiveEventService
+{
+    private static readonly JsonSerializerOptions JsonOptions = new();
+    private const string SharedStatsDirectoryName = "_ClueVaultStats";
+
+    public static async Task RecordAsync(AppConfig config, SubmissionHistoryEntry entry)
+    {
+        var record = new ArchiveEventRecord
+        {
+            EventId = entry.Id,
+            CreatedAt = entry.CreatedAt,
+            Date = entry.CreatedAt.ToString("yyyy-MM-dd"),
+            Submitter = entry.Submitter,
+            MachineName = Environment.MachineName,
+            ClientId = await GetClientIdAsync(),
+            Source = entry.Source,
+            DisciplineId = entry.DisciplineId,
+            DisciplineLabel = entry.DisciplineLabel,
+            FolderName = entry.FolderName,
+            TargetDirectory = entry.TargetDirectory,
+            AttachmentCount = entry.Attachments.Count,
+            AppVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"
+        };
+
+        await AppendLocalAsync(record);
+        TryAppendShared(config, record);
+    }
+
+    private static async Task AppendLocalAsync(ArchiveEventRecord record)
+    {
+        Directory.CreateDirectory(AppPaths.UserDataDirectory);
+        var line = JsonSerializer.Serialize(record, JsonOptions);
+        await File.AppendAllTextAsync(AppPaths.ArchiveEventsPath, line + Environment.NewLine, Encoding.UTF8);
+    }
+
+    private static void TryAppendShared(AppConfig config, ArchiveEventRecord record)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(config.StoragePath) || !Directory.Exists(config.StoragePath))
+            {
+                return;
+            }
+
+            var directory = Path.Combine(config.StoragePath, SharedStatsDirectoryName);
+            Directory.CreateDirectory(directory);
+            var filePath = Path.Combine(directory, $"archive-events-{record.CreatedAt:yyyy-MM}.jsonl");
+            var line = JsonSerializer.Serialize(record, JsonOptions);
+            File.AppendAllText(filePath, line + Environment.NewLine, Encoding.UTF8);
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Append shared archive event failed");
+        }
+    }
+
+    private static async Task<string> GetClientIdAsync()
+    {
+        Directory.CreateDirectory(AppPaths.UserDataDirectory);
+        if (File.Exists(AppPaths.ClientIdPath))
+        {
+            var existing = (await File.ReadAllTextAsync(AppPaths.ClientIdPath, Encoding.UTF8)).Trim();
+            if (!string.IsNullOrWhiteSpace(existing))
+            {
+                return existing;
+            }
+        }
+
+        var clientId = Guid.NewGuid().ToString("N");
+        await File.WriteAllTextAsync(AppPaths.ClientIdPath, clientId, Encoding.UTF8);
+        return clientId;
+    }
+}
+
+public static class ArchiveStatsReader
+{
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private const string SharedStatsDirectoryName = "_ClueVaultStats";
+
+    public static async Task<ArchiveStatsSummary> LoadSummaryAsync(AppConfig config)
+    {
+        var records = await LoadRecordsAsync(config);
+        var today = DateTime.Today;
+        var last30Start = today.AddDays(-29);
+        var recentRecords = records
+            .Where(item => item.CreatedAt.Date >= last30Start && item.CreatedAt.Date <= today)
+            .ToList();
+
+        var dailyCounts = Enumerable.Range(0, 30)
+            .Select(offset => today.AddDays(-29 + offset))
+            .Select(date => new ArchiveDailyCount
+            {
+                Date = date.ToString("yyyy-MM-dd"),
+                Count = recentRecords.Count(item => item.CreatedAt.Date == date)
+            })
+            .ToList();
+
+        var disciplineCounts = recentRecords
+            .GroupBy(item => string.IsNullOrWhiteSpace(item.DisciplineLabel) ? "未分类" : item.DisciplineLabel)
+            .Select(group => new ArchiveDisciplineCount { Label = group.Key, Count = group.Count() })
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Label)
+            .ToList();
+
+        return new ArchiveStatsSummary
+        {
+            TodayCount = dailyCounts.LastOrDefault()?.Count ?? 0,
+            Last7DaysCount = dailyCounts.TakeLast(7).Sum(item => item.Count),
+            Last30DaysCount = dailyCounts.Sum(item => item.Count),
+            DailyCounts = dailyCounts,
+            DisciplineCounts = disciplineCounts,
+            DataSource = GetDataSource(config),
+            GeneratedAt = DateTime.Now
+        };
+    }
+
+    private static async Task<List<ArchiveEventRecord>> LoadRecordsAsync(AppConfig config)
+    {
+        var paths = GetEventFilePaths(config);
+        var recordsById = new Dictionary<string, ArchiveEventRecord>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in paths)
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
+                foreach (var line in lines.Where(item => !string.IsNullOrWhiteSpace(item)))
+                {
+                    var record = JsonSerializer.Deserialize<ArchiveEventRecord>(line, JsonOptions);
+                    if (record is null || string.IsNullOrWhiteSpace(record.EventId))
+                    {
+                        continue;
+                    }
+
+                    recordsById[record.EventId] = record;
+                }
+            }
+            catch (Exception error)
+            {
+                AppLogger.Error(error, $"Read archive stats failed: {path}");
+            }
+        }
+
+        return recordsById.Values.ToList();
+    }
+
+    private static IEnumerable<string> GetEventFilePaths(AppConfig config)
+    {
+        yield return AppPaths.ArchiveEventsPath;
+
+        var sharedStatsDirectory = GetSharedStatsDirectory(config);
+        if (!string.IsNullOrWhiteSpace(sharedStatsDirectory) && Directory.Exists(sharedStatsDirectory))
+        {
+            foreach (var path in Directory.EnumerateFiles(sharedStatsDirectory, "archive-events-*.jsonl"))
+            {
+                yield return path;
+            }
+        }
+    }
+
+    private static string GetDataSource(AppConfig config)
+    {
+        var sharedStatsDirectory = GetSharedStatsDirectory(config);
+        return !string.IsNullOrWhiteSpace(sharedStatsDirectory) && Directory.Exists(sharedStatsDirectory)
+            ? sharedStatsDirectory
+            : AppPaths.ArchiveEventsPath;
+    }
+
+    private static string GetSharedStatsDirectory(AppConfig config) =>
+        string.IsNullOrWhiteSpace(config.StoragePath)
+            ? ""
+            : Path.Combine(config.StoragePath, SharedStatsDirectoryName);
+}
+
 public static class HistoryService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
@@ -665,6 +846,7 @@ public static class ArchiveService
 
         await WriteArchiveInfoAsync(entry);
         await StatsService.RecordSubmissionAsync();
+        await ArchiveEventService.RecordAsync(config, entry);
         return entry;
     }
 

@@ -134,6 +134,7 @@
                 <StackPanel Grid.Row="1">
                     <Button x:Name="ArchiveNavButton" Style="{StaticResource NavButtonStyle}" Tag="Archive" Click="Nav_Click" Background="#E8F1EC">快速归档</Button>
                     <Button x:Name="RecordsNavButton" Style="{StaticResource NavButtonStyle}" Tag="Records" Click="Nav_Click">今日记录</Button>
+                    <Button x:Name="StatsNavButton" Style="{StaticResource NavButtonStyle}" Tag="Stats" Click="Nav_Click">统计看板</Button>
                     <Button x:Name="KnowledgeNavButton" Style="{StaticResource NavButtonStyle}" Tag="Knowledge" Click="Nav_Click">经验库</Button>
                     <Button x:Name="ConfigNavButton" Style="{StaticResource NavButtonStyle}" Tag="Config" Click="Nav_Click">配置中心</Button>
                     <Button x:Name="AboutNavButton" Style="{StaticResource NavButtonStyle}" Tag="About" Click="Nav_Click">
@@ -302,6 +303,68 @@
                     </Border>
                 </Grid>
 
+                <Grid x:Name="StatsView" Visibility="Collapsed">
+                    <Border Background="{StaticResource PaperBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="26" Padding="24">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,18">
+                                <TextBlock Text="团队归档统计" FontSize="24" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Text="读取本机和共享盘统计事件，按一次成功归档计 1 次。" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" />
+                            </StackPanel>
+
+                            <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,18">
+                                <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <TextBlock Text="今日" Foreground="{StaticResource MutedBrush}" />
+                                        <TextBlock x:Name="StatsTodayText" Text="0" FontSize="32" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18" Margin="5,0,5,0">
+                                    <StackPanel>
+                                        <TextBlock Text="近 7 天" Foreground="{StaticResource MutedBrush}" />
+                                        <TextBlock x:Name="Stats7DaysText" Text="0" FontSize="32" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18" Margin="10,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="近 30 天" Foreground="{StaticResource MutedBrush}" />
+                                        <TextBlock x:Name="Stats30DaysText" Text="0" FontSize="32" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="0.8*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="20" Padding="20" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,12">
+                                            <TextBlock Text="30 天热力图" FontSize="18" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButtonStyle}" Width="88" Height="34" Click="RefreshStats_Click">刷新</Button>
+                                        </DockPanel>
+                                        <UniformGrid x:Name="StatsHeatmapPanel" Columns="10" />
+                                        <TextBlock x:Name="StatsSourceText" Text="" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,14,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="1" Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="20" Padding="20" Margin="10,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="专业分布" FontSize="18" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,12" />
+                                        <StackPanel x:Name="StatsDisciplinePanel" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
                 <Grid x:Name="KnowledgeView" Visibility="Collapsed">
                     <Border Background="{StaticResource PaperBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="26" Padding="24">
                         <StackPanel>
@@ -381,7 +444,7 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="当前版本" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.5" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.6" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="项目地址" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="github.com/JOKER120YL/ClueVault" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="更新渠道" Foreground="{StaticResource MutedBrush}" />
@@ -403,7 +466,7 @@
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,14">
                                         <TextBlock Text="更新日志" FontSize="22" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.5" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
+                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.6" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
                                     </DockPanel>
                                     <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18">
                                         <StackPanel>
@@ -415,6 +478,7 @@
                                             <TextBlock Text="新增每日一次后台检查更新，有新版本时显示 NEW 提醒。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="修复自动更新器启动后无反馈的问题，失败时会保留窗口并写入 update.log。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="修复首次打开主窗口时今日/历史归档筛选控件导致的启动异常。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
+                                            <TextBlock Text="新增归档统计事件、本机/共享盘统计文件和统计看板。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="修复安装器创建公共桌面快捷方式时权限不足的问题。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="新增今日/历史归档切换、剪贴板截图归档和本地日志。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="优化主窗口信息架构和任务栏图标。" Foreground="{StaticResource InkBrush}" />
