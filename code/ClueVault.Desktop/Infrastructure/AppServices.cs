@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Windows.Media.Imaging;
 
 namespace ClueVault.Desktop.Infrastructure;
 
@@ -33,6 +34,58 @@ public static class AppPaths
     public static string ConfigPath => Path.Combine(UserDataDirectory, "config.json");
     public static string HistoryPath => Path.Combine(UserDataDirectory, "submission-history.json");
     public static string StatsPath => Path.Combine(UserDataDirectory, "submission-stats.json");
+    public static string LogPath => Path.Combine(UserDataDirectory, "cluevault.log");
+    public static string ClipboardAttachmentDirectory => Path.Combine(UserDataDirectory, "clipboard-attachments");
+}
+
+public static class AppLogger
+{
+    private static readonly object SyncRoot = new();
+
+    public static void Info(string message) => Write("INFO", message);
+
+    public static void Error(Exception error, string context) =>
+        Write("ERROR", $"{context}{Environment.NewLine}{error}");
+
+    private static void Write(string level, string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.UserDataDirectory);
+            var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}{Environment.NewLine}";
+            lock (SyncRoot)
+            {
+                File.AppendAllText(AppPaths.LogPath, line, Encoding.UTF8);
+            }
+        }
+        catch
+        {
+            // Logging must never block the main workflow.
+        }
+    }
+}
+
+public static class ClipboardAttachmentService
+{
+    public static AttachmentItem SaveBitmapSource(BitmapSource bitmapSource)
+    {
+        Directory.CreateDirectory(AppPaths.ClipboardAttachmentDirectory);
+        var fileName = $"聊天截图_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+        var path = Path.Combine(AppPaths.ClipboardAttachmentDirectory, fileName);
+
+        using var stream = File.Create(path);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+        encoder.Save(stream);
+
+        AppLogger.Info($"Saved clipboard image attachment: {path}");
+        return new AttachmentItem
+        {
+            Path = path,
+            Name = fileName,
+            Role = "image"
+        };
+    }
 }
 
 public static class ShortcutService
@@ -408,6 +461,14 @@ public static class HistoryService
         var raw = await File.ReadAllTextAsync(AppPaths.HistoryPath, Encoding.UTF8);
         var entries = JsonSerializer.Deserialize<List<SubmissionHistoryEntry>>(raw) ?? [];
         return new ObservableCollection<SubmissionHistoryEntry>(entries.OrderByDescending(item => item.UpdatedAt));
+    }
+
+    public static async Task<ObservableCollection<SubmissionHistoryEntry>> LoadTodayAsync()
+    {
+        var entries = await LoadAsync();
+        var today = DateTime.Today;
+        return new ObservableCollection<SubmissionHistoryEntry>(
+            entries.Where(item => item.CreatedAt.Date == today));
     }
 
     public static async Task SaveAsync(IEnumerable<SubmissionHistoryEntry> entries)

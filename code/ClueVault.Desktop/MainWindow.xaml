@@ -192,6 +192,7 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button Style="{StaticResource PrimaryButtonStyle}" Width="170" Height="48" Click="Submit_Click">归档到共享盘</Button>
                                     <Button Style="{StaticResource GhostButtonStyle}" Width="132" Height="48" Margin="10,0,0,0" Click="ChooseFiles_Click">选择文件</Button>
+                                    <Button Style="{StaticResource GhostButtonStyle}" Width="132" Height="48" Margin="10,0,0,0" Click="PasteClipboardImage_Click">粘贴截图</Button>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -268,6 +269,10 @@
                             <StackPanel Grid.Row="0" Margin="0,0,0,16">
                                 <TextBlock Text="今日归档记录" FontSize="24" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Text="查看归档目录、专业分类和提交时间。" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" />
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <ToggleButton x:Name="TodayRecordsToggle" Style="{StaticResource ChipButtonStyle}" MinWidth="96" IsChecked="True" Checked="RecordsFilter_Checked">今日归档</ToggleButton>
+                                    <ToggleButton x:Name="AllRecordsToggle" Style="{StaticResource ChipButtonStyle}" MinWidth="96" Checked="RecordsFilter_Checked">历史归档</ToggleButton>
+                                </StackPanel>
                             </StackPanel>
                             <ListBox x:Name="HistoryList" Grid.Row="1" Background="Transparent" BorderThickness="0">
                                 <ListBox.ItemTemplate>
@@ -369,7 +374,7 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="当前版本" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.2" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Text="v0.2.3" FontWeight="Bold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="项目地址" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="github.com/JOKER120YL/ClueVault" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" Margin="0,0,0,14" />
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="更新渠道" Foreground="{StaticResource MutedBrush}" />
@@ -388,7 +393,7 @@
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,14">
                                         <TextBlock Text="更新日志" FontSize="22" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.2" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
+                                        <TextBlock DockPanel.Dock="Right" Text="v0.2.3" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" />
                                     </DockPanel>
                                     <Border Background="#F8FCF9" BorderBrush="#DDE7DF" BorderThickness="1" CornerRadius="18" Padding="18">
                                         <StackPanel>
@@ -398,6 +403,7 @@
                                             <TextBlock Text="新增关于页面、版本信息和 GitHub Releases 更新入口。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="新增软件内自动检查、下载并覆盖更新的基础机制。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="修复安装器创建公共桌面快捷方式时权限不足的问题。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
+                                            <TextBlock Text="新增今日/历史归档切换、剪贴板截图归档和本地日志。" Foreground="{StaticResource InkBrush}" Margin="0,0,0,8" />
                                             <TextBlock Text="优化主窗口信息架构和任务栏图标。" Foreground="{StaticResource InkBrush}" />
                                         </StackPanel>
                                     </Border>

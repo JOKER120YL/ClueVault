@@ -16,6 +16,26 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        AppLogger.Info("Application starting.");
+        DispatcherUnhandledException += (_, args) =>
+        {
+            AppLogger.Error(args.Exception, "Unhandled UI exception");
+            System.Windows.MessageBox.Show(args.Exception.Message, "程序异常", MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception error)
+            {
+                AppLogger.Error(error, "Unhandled app domain exception");
+            }
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            AppLogger.Error(args.Exception, "Unobserved task exception");
+            args.SetObserved();
+        };
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         var config = await ConfigService.LoadAsync();
@@ -56,6 +76,7 @@ public partial class App : System.Windows.Application
 
     private async void FloatingWidgetWindow_FilesDropped(object? sender, IReadOnlyList<string> e)
     {
+        AppLogger.Info($"Floating widget received {e.Count} dropped file(s).");
         var attachments = ArchiveService.ToAttachments(e);
         if (attachments.Count == 0)
         {
@@ -79,7 +100,7 @@ public partial class App : System.Windows.Application
                 dialog.SourceValue,
                 dialog.RemarkValue,
                 dialog.ProjectNameValue,
-                attachments);
+                dialog.Attachments);
 
             await HistoryService.AppendAsync(entry);
             await RefreshFloatingWidgetAsync();
@@ -91,6 +112,7 @@ public partial class App : System.Windows.Application
         }
         catch (Exception error)
         {
+            AppLogger.Error(error, "Floating widget archive failed");
             System.Windows.MessageBox.Show(error.Message, "归档失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -164,6 +186,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        AppLogger.Info("Application exiting.");
         _trayIcon?.Dispose();
         base.OnExit(e);
     }

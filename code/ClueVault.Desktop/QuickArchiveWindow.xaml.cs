@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Linq;
+using System.Collections.ObjectModel;
 using ClueVault.Desktop.Infrastructure;
 
 namespace ClueVault.Desktop;
@@ -11,13 +12,16 @@ public partial class QuickArchiveWindow : Window
     public string ProjectNameValue => ProjectNameTextBox.Text.Trim();
     public string SourceValue => string.IsNullOrWhiteSpace(SourceTextBox.Text) ? "微信群" : SourceTextBox.Text.Trim();
     public string RemarkValue => RemarkTextBox.Text.Trim();
+    public IReadOnlyList<AttachmentItem> Attachments => _attachments;
+    private readonly ObservableCollection<AttachmentItem> _attachments;
 
     public QuickArchiveWindow(IReadOnlyList<AttachmentItem> attachments, string selectedDisciplineId)
     {
         InitializeComponent();
         SelectedDisciplineId = selectedDisciplineId;
-        AttachmentList.ItemsSource = attachments;
-        SummaryText.Text = $"已收到 {attachments.Count} 个文件。选专业后即可归档，项目名、来源和备注都可以不填。";
+        _attachments = new ObservableCollection<AttachmentItem>(attachments);
+        AttachmentList.ItemsSource = _attachments;
+        UpdateSummary();
         BuildDisciplineButtons();
     }
 
@@ -76,5 +80,37 @@ public partial class QuickArchiveWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void PasteScreenshot_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!System.Windows.Clipboard.ContainsImage())
+            {
+                SummaryText.Text = "剪贴板里没有图片。请先截图，再点击粘贴剪贴板截图。";
+                return;
+            }
+
+            var image = System.Windows.Clipboard.GetImage();
+            if (image is null)
+            {
+                SummaryText.Text = "读取剪贴板图片失败，请重新截图后再试。";
+                return;
+            }
+
+            _attachments.Add(ClipboardAttachmentService.SaveBitmapSource(image));
+            UpdateSummary();
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Quick archive paste clipboard image failed");
+            SummaryText.Text = error.Message;
+        }
+    }
+
+    private void UpdateSummary()
+    {
+        SummaryText.Text = $"已收到 {_attachments.Count} 个文件。可粘贴截图一起归档，项目名、来源和备注都可以不填。";
     }
 }

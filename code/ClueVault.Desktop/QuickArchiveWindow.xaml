@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="快速归档"
         Width="360"
-        Height="500"
+        Height="540"
         WindowStartupLocation="Manual"
         ResizeMode="NoResize"
         WindowStyle="None"
@@ -42,6 +42,8 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <Button x:Name="PasteScreenshotButton" Height="36" Margin="0,4,0,10" Click="PasteScreenshot_Click">粘贴剪贴板截图</Button>
 
                 <TextBlock Text="归档专业 *" FontSize="14" Foreground="#394047" Margin="0,8,0,10" />
                 <WrapPanel x:Name="DisciplinePanel" />

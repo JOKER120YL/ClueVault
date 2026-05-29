@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Win32;
 using ClueVault.Desktop.Infrastructure;
+using System.Windows.Input;
 
 namespace ClueVault.Desktop;
 
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<AttachmentItem> _attachments = [];
     private ObservableCollection<SubmissionHistoryEntry> _historyEntries = [];
+    private ObservableCollection<SubmissionHistoryEntry> _visibleHistoryEntries = [];
     private AppConfig _config = new();
     private string _selectedDisciplineId = "architecture";
     private bool _isLoadedOnce;
@@ -24,6 +26,7 @@ public partial class MainWindow : Window
         AttachmentList.ItemsSource = _attachments;
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+        KeyDown += MainWindow_KeyDown;
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -71,7 +74,7 @@ public partial class MainWindow : Window
     public async Task RefreshAfterExternalArchiveAsync()
     {
         _historyEntries = await HistoryService.LoadAsync();
-        HistoryList.ItemsSource = _historyEntries;
+        ApplyHistoryFilter();
         await RefreshWidgetBadgeAsync();
     }
 
@@ -90,7 +93,7 @@ public partial class MainWindow : Window
     {
         _config = await ConfigService.LoadAsync();
         _historyEntries = await HistoryService.LoadAsync();
-        HistoryList.ItemsSource = _historyEntries;
+        ApplyHistoryFilter();
         BuildDisciplineButtons(DisciplinePanel, SelectDiscipline);
         BuildDisciplineButtons(QuickDisciplinePanel, SelectDiscipline);
         ApplySelectedDiscipline(_selectedDisciplineId);
@@ -197,6 +200,16 @@ public partial class MainWindow : Window
         UpdateBugStatus("");
     }
 
+    private void ApplyHistoryFilter()
+    {
+        var showAll = AllRecordsToggle?.IsChecked == true;
+        _visibleHistoryEntries = new ObservableCollection<SubmissionHistoryEntry>(
+            showAll
+                ? _historyEntries
+                : _historyEntries.Where(item => item.CreatedAt.Date == DateTime.Today));
+        HistoryList.ItemsSource = _visibleHistoryEntries;
+    }
+
     private async Task<bool> SubmitCurrentAsync()
     {
         try
@@ -211,7 +224,7 @@ public partial class MainWindow : Window
                 _attachments.ToList());
 
             _historyEntries = await HistoryService.AppendAsync(entry);
-            HistoryList.ItemsSource = _historyEntries;
+            ApplyHistoryFilter();
             _attachments.Clear();
             DescriptionTextBox.Clear();
             ProjectNameTextBox.Clear();
@@ -222,6 +235,7 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
+            AppLogger.Error(error, "Main archive failed");
             UpdateBugStatus(error.Message);
             return false;
         }
@@ -242,6 +256,47 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             AddAttachments(ArchiveService.ToAttachments(dialog.FileNames));
+        }
+    }
+
+    private void PasteClipboardImage_Click(object sender, RoutedEventArgs e)
+    {
+        PasteClipboardImage();
+    }
+
+    private void PasteClipboardImage()
+    {
+        try
+        {
+            if (!System.Windows.Clipboard.ContainsImage())
+            {
+                UpdateBugStatus("剪贴板里没有图片。请先截图，再点击粘贴截图。");
+                return;
+            }
+
+            var image = System.Windows.Clipboard.GetImage();
+            if (image is null)
+            {
+                UpdateBugStatus("读取剪贴板图片失败，请重新截图后再试。");
+                return;
+            }
+
+            AddAttachments([ClipboardAttachmentService.SaveBitmapSource(image)]);
+            UpdateBugStatus("已从剪贴板添加截图。");
+        }
+        catch (Exception error)
+        {
+            AppLogger.Error(error, "Paste clipboard image failed");
+            UpdateBugStatus(error.Message);
+        }
+    }
+
+    private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V && ArchiveView.Visibility == Visibility.Visible)
+        {
+            PasteClipboardImage();
+            e.Handled = true;
         }
     }
 
@@ -429,7 +484,26 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             _historyEntries = await HistoryService.UpdateAsync(entry, dialog.ProjectNameValue, dialog.DescriptionValue);
-            HistoryList.ItemsSource = _historyEntries;
+            ApplyHistoryFilter();
         }
+    }
+
+    private void RecordsFilter_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender == TodayRecordsToggle && TodayRecordsToggle.IsChecked == true)
+        {
+            AllRecordsToggle.IsChecked = false;
+        }
+        else if (sender == AllRecordsToggle && AllRecordsToggle.IsChecked == true)
+        {
+            TodayRecordsToggle.IsChecked = false;
+        }
+
+        if (TodayRecordsToggle.IsChecked != true && AllRecordsToggle.IsChecked != true)
+        {
+            TodayRecordsToggle.IsChecked = true;
+        }
+
+        ApplyHistoryFilter();
     }
 }
